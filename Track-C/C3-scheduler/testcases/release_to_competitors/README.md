@@ -23,6 +23,17 @@ release_to_competitors/
         └── transformer_v1/
 ```
 
+## 测试数据说明
+
+为遵守 GitHub 单文件大小限制，`testdata/c35/resnet_v1/input/input.npy` 在仓库中以压缩形式 `input.npy.gz` 提供。运行测试前请先解压：
+
+```bash
+bash decompress_testdata.sh
+```
+
+该脚本会把所有 `.npy.gz` 文件还原为 `.npy`。解压后目录结构与评测时一致。
+
+
 ## 快速自测（C3.5）
 
 以 ResNet 为例，用你的推理程序产出输出后，与标准答案比对：
