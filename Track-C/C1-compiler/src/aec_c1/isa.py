@@ -259,6 +259,65 @@ def bytes_to_words(blob: bytes) -> list[tuple[int, int, int, int]]:
     return list(struct.iter_unpack("<4I", blob))
 
 
+def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAProfile = TRACK_B_V1) -> AECInstruction:
+    word0, word1, word2, word3 = words
+    opcode_value = (word3 >> 16) & 0xFFFF
+    pred_ctrl = word3 & 0xFFFF
+    reverse_opcodes = {value: key for key, value in profile.opcodes.items()}
+    reverse_types = {value: key for key, value in profile.types.items()}
+    reverse_cmp = {value: key for key, value in profile.compare_ops.items()}
+    reverse_spaces = {value: key for key, value in profile.memory_spaces.items()}
+
+    opcode = reverse_opcodes.get(opcode_value)
+    if opcode is None:
+        raise EncodeError(f"unknown opcode for {profile.name}: 0x{opcode_value:04x}")
+
+    dtype_code = (pred_ctrl >> TYPE_SHIFT) & 0xF
+    dtype = reverse_types.get(dtype_code)
+    if dtype is None:
+        raise EncodeError(f"unknown type for {profile.name}: 0x{dtype_code:x}")
+
+    predicate = None
+    predicate_negated = False
+    if opcode == "BRX":
+        predicate = pred_ctrl & 0x7
+    elif pred_ctrl & PRED_ENABLE:
+        predicate = pred_ctrl & 0x7
+        predicate_negated = bool(pred_ctrl & PRED_NEGATE)
+
+    compare = None
+    memory_space = None
+    cvt_src_type = None
+    if opcode in {"CMP", "CMPP"}:
+        compare = reverse_cmp.get((pred_ctrl >> FAMILY_SHIFT) & 0x7)
+        if compare is None:
+            raise EncodeError(f"unknown compare op for {profile.name}: 0x{(pred_ctrl >> FAMILY_SHIFT) & 0x7:x}")
+    elif opcode in {"LD", "ST", "LDC"}:
+        memory_space = reverse_spaces.get((pred_ctrl >> SPACE_SHIFT) & 0x7)
+        if memory_space is None:
+            raise EncodeError(f"unknown memory space for {profile.name}: 0x{(pred_ctrl >> SPACE_SHIFT) & 0x7:x}")
+    elif opcode.startswith("CVT"):
+        src_type_code = (pred_ctrl >> 10) & 0xF
+        cvt_src_type = reverse_types.get(src_type_code)
+        if cvt_src_type is None:
+            raise EncodeError(f"unknown conversion source type for {profile.name}: 0x{src_type_code:x}")
+
+    return AECInstruction(
+        opcode=opcode,
+        dtype=dtype,
+        dest=(word2 >> 16) & 0xFFFF,
+        src1=word2 & 0xFFFF,
+        src2=word1 & 0xFFFFFFFF,
+        src3=word0 & 0xFFFFFFFF if not _uses_immediate(opcode) else 0,
+        imm=word0 & 0xFFFFFFFF if _uses_immediate(opcode) else 0,
+        predicate=predicate,
+        predicate_negated=predicate_negated,
+        compare=compare,
+        memory_space=memory_space,
+        cvt_src_type=cvt_src_type,
+    )
+
+
 def decode_instruction(words: tuple[int, int, int, int], profile: ISAProfile = TRACK_B_V1) -> str:
     word0, word1, word2, word3 = words
     opcode_value = (word3 >> 16) & 0xFFFF

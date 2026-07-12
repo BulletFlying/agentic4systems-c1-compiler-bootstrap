@@ -9,7 +9,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aec_c1.compiler import compile_ptx
-from aec_c1.isa import AECInstruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
+from aec_c1.isa import AECInstruction, decode_words_to_instruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
 from aec_c1.objdump import disassemble
 from aec_c1.sim import TrackBSimulator, bits_to_f32, f32_to_bits
 
@@ -33,6 +33,20 @@ def test_objdump_round_trip_smoke() -> None:
     lines = disassemble(blob)
     assert "LOADI R1, 0x00000028" in lines[0]
     assert lines[1].endswith("HALT")
+
+
+def test_encoder_decoder_field_round_trip() -> None:
+    instructions = [
+        AECInstruction("LOADI", dest=1, imm=40),
+        AECInstruction("ADD", dtype="u32", dest=3, src1=1, src2=2, predicate=1, predicate_negated=True),
+        AECInstruction("LD", dtype="b64", dest=2, src1=240, memory_space="pmem"),
+        AECInstruction("ST", dtype="f32", src1=8, src2=9, memory_space="gmem"),
+        AECInstruction("CMPP", dtype="u32", dest=1, src1=5, src2=6, compare="ge"),
+        AECInstruction("BRX", predicate=1, imm=22),
+        AECInstruction("CVTFF", dtype="f32", cvt_src_type="f16", dest=4, src1=5),
+    ]
+    for instruction in instructions:
+        assert decode_words_to_instruction(encode_instruction(instruction)) == instruction
 
 
 def test_public_ptx_01_lowers_to_raw_instructions() -> None:
