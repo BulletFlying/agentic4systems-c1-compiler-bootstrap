@@ -1,6 +1,6 @@
 # AGENTS.md — C1 编译器协作规则
 
-本文件适用于 `Track-C/C1-compiler/` 及其子目录。详细目标、评分、里程碑和验收基线见 `docs/C1_PROJECT_CHARTER.md`；当前实施状态见 `docs/STATUS.md`。
+本文件适用于 `Track-C/C1-compiler/` 及其子目录。详细目标、评分、里程碑和验收基线见 `docs/C1_PROJECT_CHARTER.md`；当前实施状态见 `docs/STATUS.md`；branch、PR 与新模块修改门禁见 `docs/DEVELOPMENT_POLICY.md`。
 
 ## 1. 不可违反的边界
 
@@ -35,7 +35,9 @@ git ls-remote origin refs/heads/main
 git ls-remote c1-public refs/heads/main
 ```
 
-确认 clean tree 后创建 feature branch。若本地 remote 名不同，报告真实映射，不得自行假设。
+确认 clean tree 后，从最新项目 `main` 创建符合 `docs/DEVELOPMENT_POLICY.md` 命名规则的短生命周期 branch。除用户明确授权的紧急文档修正外，不得直接在 `main` 开发；代码、测试和基础设施变更必须通过 PR 合并。若本地 remote 名不同，报告真实映射，不得自行假设。
+
+新建或重大修改模块前，必须先写清模块责任、接口、analysis preservation/invalidation、语义不变量、保守 fallback、迁移路径和验收测试。可先建立 GitHub `C1 module or milestone change` issue，PR 必须填写仓库内模板。
 
 ## 4. 实施原则
 
@@ -70,7 +72,8 @@ M6 Agent + final object format + packaging
 每轮至少执行：
 
 ```bash
-python -m pytest tests
+python -m compileall -q src compiler disassembler agent tests
+python -m pytest -q tests
 git diff --check
 git status --short
 ```
@@ -84,7 +87,8 @@ git status --short
 - 无缓存、临时 binary、日志或 disposable artifact；
 - README/STATUS 对实现能力描述真实；
 - 官方仓库 main SHA 未因本轮发生变化；
-- 只推送项目仓库。
+- 只推送项目仓库；
+- GitHub Actions 已运行时必须为 green；仅存在 workflow 文件不得表述为 CI passed。
 
 ## 7. 代码审阅优先级
 
