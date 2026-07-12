@@ -1,0 +1,115 @@
+# AGENTS.md — C1 编译器协作规则
+
+本文件适用于 `Track-C/C1-compiler/` 及其子目录。详细目标、评分、里程碑和验收基线见 `docs/C1_PROJECT_CHARTER.md`；当前实施状态见 `docs/STATUS.md`。
+
+## 1. 不可违反的边界
+
+- 官方仓库 `ephonic/Agentic4SystemSummerSchoolContest` 是只读事实源。没有用户逐次明确授权，不得向其 push、创建 branch/tag/release/PR/issue 或修改任何内容。
+- 只允许将开发结果写入 `BulletFlying/agentic4systems-c1-compiler-bootstrap`。
+- 禁止根据文件名、case ID、输入 hash、固定标签、固定 PTX 寄存器编号或固定指令位置生成特例答案。
+- 禁止放松 simulator/validator 语义来让测试通过。
+- 无法证明合法的 lowering/optimization 必须保守 fallback 或明确报错，不得猜测。
+- 未实际运行的验证不得标为 passed；本地 simulator 通过不得表述为官方 Golden/Cycle Model 通过。
+
+## 2. 事实来源顺序
+
+1. 官方 C1 `spec.md`、`scoring.md`。
+2. 官方 Track-B `spec.md` Appendix A 与公开 assembly/binary/testcase。
+3. 官方 C2 starter kit 中明确标注的扩展。
+4. 发布会/群公告。
+5. 本仓库文档和兼容推断。
+
+默认 ISA profile 是 Track-B Appendix A。C2/B3 tensor encoding 必须保持独立 profile，不得混入默认编码。
+
+## 3. 每轮开始前
+
+必须记录：
+
+```bash
+git status --short
+git status --branch --short
+git rev-parse HEAD
+git remote -v
+git branch -vv
+git ls-remote origin refs/heads/main
+git ls-remote c1-public refs/heads/main
+```
+
+确认 clean tree 后创建 feature branch。若本地 remote 名不同，报告真实映射，不得自行假设。
+
+## 4. 实施原则
+
+- Parser、IR、CFG、analysis、transform、regalloc、scheduler、ISA/object、simulator、Agent 分层；避免继续扩大单体 `compiler.py`。
+- Analysis 只产生事实；transform 显式消费事实。CFG 改写后重算或失效相关分析。
+- `UNKNOWN` uniformity 绝不等于 `UNIFORM`。只有 proven-uniform predicate 可生成直接 AEC `BRX`。
+- kernel 顶层 PTX `ret` 降为 `HALT`；AEC `RET` 仅服务真实 `CALL`。
+- 临时寄存器不得回绕覆盖；寄存器不足必须报错，后续由 liveness-aware allocator/spill 解决。
+- 64-bit PTX pointer 到 AEC 32-bit memory-space offset 的转换必须作为显式 address legalization，不得伪装成完整通用 u64 ALU。
+- 每个 pass 要有独立测试、negative test、优化前后 executable differential，并说明 preserved/invalidated analyses。
+- 不得让 compiler 与 simulator 共享同一段核心语义实现，从而形成自证循环。
+
+## 5. 里程碑顺序
+
+严格按以下主线推进，除非用户明确调整：
+
+```text
+M0 ISA/CLI/encoder baseline
+M1 PTX-01 executable correctness
+M2.1 PTX-02 CFG + uniform loop correctness
+M2.2 CSE/DCE/LICM/basic-block optimization
+M3 PTX-03 memory optimization
+M4 PTX-04 register allocation + scheduling
+M5 PTX-05 multi-precision GEMM
+M6 Agent + final object format + packaging
+```
+
+不得在当前 milestone 的 correctness gate 未通过时提前宣称后续能力完成。
+
+## 6. 测试与验收
+
+每轮至少执行：
+
+```bash
+python -m pytest tests
+git diff --check
+git status --short
+```
+
+并根据本轮功能增加：CLI compile、objdump、structural assertions、boundary/random differential、invalid-lane side-effect、mutation、negative tests。
+
+完成标准：
+
+- 目标测试和此前全部 regression 通过；
+- 生成代码结构满足证明条件，不只输出相同结果；
+- 无缓存、临时 binary、日志或 disposable artifact；
+- README/STATUS 对实现能力描述真实；
+- 官方仓库 main SHA 未因本轮发生变化；
+- 只推送项目仓库。
+
+## 7. 代码审阅优先级
+
+1. 错误二进制、mixed-lane branch、OOB、寄存器覆盖等 correctness defect。
+2. 对寄存器/标签重命名、loop/shape 变化不成立的泛化 defect。
+3. compiler 与 simulator 同源假设导致的伪验证。
+4. 静默 fallback、`legacy_*` 绕过、职责混杂、长函数和重复逻辑。
+5. 性能优化机会。
+
+发现技术债务应记录到 `docs/STATUS.md`，并给出严重级别、影响、触发条件和建议修复 milestone。
+
+## 8. 最终汇报格式
+
+每轮结束固定输出：
+
+```text
+Summary
+Changed files
+Design / proof
+Verification (Passed / Failed / Not run)
+Code quality review
+Git status and remote verification
+Known limitations
+Organizer clarification needed
+Next single main task
+```
+
+不要使用“完整完成 C1”这一表述，除非 `docs/C1_PROJECT_CHARTER.md` 的最终交付门禁全部满足。
