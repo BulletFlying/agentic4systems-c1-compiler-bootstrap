@@ -126,6 +126,42 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert first.endswith("\n")
 
 
+def test_report_contains_model_facing_static_metrics_without_official_cycle_claims() -> None:
+    text = _load_ptx("PTX-02_invariant_poly.ptx")
+    payload = compile_ptx_detailed(
+        text,
+        opt_level="3",
+        input_name="testcases/PTX-02_invariant_poly.ptx",
+    ).report.to_dict()
+
+    assert payload["schema_version"] == 1
+    assert payload["optimization"] == "O3"
+    assert set(payload["static_metrics"]) == {
+        "branch_count",
+        "estimated_dependency_depth",
+        "estimated_register_pressure",
+        "gmem_loads",
+        "gmem_stores",
+        "instruction_count",
+        "instruction_mix",
+        "smem_ops",
+    }
+    assert payload["static_metrics"]["instruction_count"] == payload["metrics"]["machine_instruction_count"]
+    assert payload["static_metrics"]["branch_count"] == payload["metrics"]["branch_count"]
+    assert payload["static_metrics"]["gmem_loads"] == 1
+    assert payload["static_metrics"]["gmem_stores"] == 1
+    assert payload["static_metrics"]["instruction_mix"]["BRX"] == 1
+    assert payload["static_metrics"]["estimated_dependency_depth"] is None
+    assert payload["static_metrics"]["estimated_register_pressure"] is None
+    assert payload["cycle_model_metrics"] == {
+        "dual_issue_rate": None,
+        "memory_transactions": None,
+        "spill_count": None,
+        "stall_cycles": None,
+        "total_cycles": None,
+    }
+
+
 def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     input_path = ROOT / "testcases" / "PTX-02_invariant_poly.ptx"
     first_binary = tmp_path / "first.aecbin"
@@ -163,6 +199,8 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     payload = json.loads(first_report.read_text(encoding="utf-8"))
     assert payload["input"] == input_path.as_posix()
     assert payload["profile"] == TRACK_B_V1.name
+    assert "static_metrics" in payload
+    assert "cycle_model_metrics" in payload
 
 
 def test_o0_facade_matches_quarantined_lowering_for_public_control_cases() -> None:
@@ -174,10 +212,9 @@ def test_o0_facade_matches_quarantined_lowering_for_public_control_cases() -> No
 
         legacy_blob = instructions_to_bytes(legacy.instructions, TRACK_B_V1)
         current_blob = instructions_to_bytes(current.instructions, TRACK_B_V1)
+        current_hash = sha256(current_blob).hexdigest()
 
         assert current_blob == legacy_blob, name
-        assert sha256(current_blob).hexdigest() == sha256(legacy_blob).hexdigest(), name
-        assert golden[name]["profile"] == TRACK_B_V1.name
-        assert golden[name]["opt_level"] == "O0"
-        assert sha256(current_blob).hexdigest() == golden[name]["sha256"], name
+        assert current_hash == sha256(legacy_blob).hexdigest(), name
+        assert current_hash == golden[name]["sha256"], name
         assert current.parameter_offsets == legacy.parameter_offsets, name
