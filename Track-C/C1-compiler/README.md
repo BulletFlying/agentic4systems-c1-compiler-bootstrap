@@ -6,14 +6,14 @@ This directory contains the current C1 PTX-style IR to AEC ISA compiler workspac
 
 - `compiler/aec-cc`: PTX-style IR to AEC binary.
 - `disassembler/aec-objdump`: raw AEC binary disassembler.
-- `agent/run_agent`: conservative offline optimization-agent stub.
+- `agent/run_agent`: deterministic offline optimization controller with a decision log.
 
 Run them from this directory:
 
 ```bash
 python compiler/aec-cc testcases/PTX-01_vector_add.ptx -O0 -o build/PTX-01.aecbin
 python disassembler/aec-objdump build/PTX-01.aecbin
-python agent/run_agent
+python agent/run_agent testcases/PTX-02_invariant_poly.ptx -o build/optimization_decision.json
 ```
 
 ## Project Governance

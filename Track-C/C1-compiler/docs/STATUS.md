@@ -22,11 +22,11 @@ Organizer performance clarification recorded in `docs/PERFORMANCE_MODEL.md`: Tra
 | M1 PTX-01 correctness loop | Locally complete | Partial-warp and randomized differential tests exist |
 | M2.1 PTX-02 CFG/uniform-loop correctness | Locally complete | CFG, dominators, uniformity analysis and executable tests exist |
 | M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary golden fixtures exist |
-| M2.2 scalar optimization | In progress | O2/O3 include conservative DRE, basic-block-local CSE and basic-block-local constant folding; no general DCE, global CSE, LICM or block merge |
+| M2.2 scalar optimization | In progress | O2/O3 include conservative DRE, basic-block-local CSE, basic-block-local constant folding and a deterministic optimization controller; no general DCE, global CSE, LICM or block merge |
 | M3 PTX-03 memory optimization | Not started | No memory optimization pass |
 | M4 PTX-04 regalloc/scheduling | Not started | Bootstrap allocation only |
 | M5 PTX-05 GEMM | Not started | No validated GEMM lowering |
-| M6 Agent/final packaging | Stub only | No report-driven closed loop |
+| M6 Agent/final packaging | Initial deterministic loop | `agent/run_agent` enumerates fixed optimization candidates, compiles them, runs a local correctness gate, ranks static metrics and emits a decision log |
 
 ## Current architecture
 
@@ -48,6 +48,19 @@ Implemented framework modules:
 The scalar transforms remain intentionally local and conservative. DRE removes only never-read unpredicated pure results. Local CSE rewrites only duplicate unpredicated pure expressions inside one local basic-block scope. Local constant folding folds only provable unpredicated pure immediates/constants inside one local block. The compiler still does not claim general DCE, global CSE, LICM, constant propagation, scheduling, register allocation or GEMM optimization support.
 
 For PTX-02, O2/O3 remove the never-read `mul.f32 %f15, %f1, %f2` and the duplicate `%f5`/`%f6` add through DRE and local CSE. Local constant folding currently targets constructed constant-expression coverage and is not a PTX-02-specific transform.
+
+## Agent loop status
+
+`agent/run_agent` now implements a first deterministic optimization controller. It enumerates a fixed candidate set:
+
+1. baseline;
+2. conservative DRE;
+3. conservative DRE + basic-block-local CSE;
+4. conservative DRE + basic-block-local CSE + local constant folding.
+
+The controller compiles each candidate, applies the local simulator as a correctness gate where the public kernel signature is supported, ranks correct candidates by static metrics and emits a machine-readable decision log. The first ranking key is `machine_instruction_count`, followed by `branch_count` and `estimated_gmem_128b_services_per_warp`; equal scores are resolved deterministically by candidate order. This optimization controller is deterministic and does not use LLM inference.
+
+This is not a general optimizer search. It does not use external services, measured GPU runtime, a fabricated cycle model, reinforcement learning or generated code.
 
 ## Regression and guardrail status
 
@@ -110,10 +123,4 @@ Local completion does not mean official Golden Model, Cycle Model or grader appr
 
 ## Next single main task
 
-Implement the first deterministic Agent optimization loop:
-
-1. Compile a baseline configuration and a small set of enabled-pass candidates.
-2. Run the existing local correctness gate before accepting any candidate.
-3. Compare machine instruction count, branch count and static GMEM service metrics.
-4. Emit a machine-readable decision log with accepted/rejected candidates.
-5. Keep the Agent offline and deterministic; do not require LLM access for the baseline loop.
+Review and merge the deterministic Agent optimization loop after CI passes, then move to the next scoring-oriented milestone: PTX-03 memory optimization or a broader correctness gate for Agent candidate validation.
