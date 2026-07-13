@@ -21,8 +21,15 @@ python agent/run_agent
 Repository context must be read from the repository rather than reconstructed from chat history:
 
 - `docs/C1_PROJECT_CHARTER.md`: mission, official scoring, architecture constraints, milestones and acceptance matrix.
+- `docs/PROJECT_OVERVIEW.md`: short project-level world model and source-of-truth map.
+- `docs/ROADMAP.md`: M0-M6 implementation route and phase gates.
+- `docs/ARCHITECTURE.md`: compiler framework boundaries and dependency direction.
+- `docs/EVALUATION.md`: official score mapping, evidence tiers and merge-readiness checklist.
+- `docs/NON_GOALS.md`: scope boundaries and anti-drift rules.
+- `docs/AGENT_ARCHITECTURE.md`: report-driven Agent design and LLM boundary.
 - `docs/STATUS.md`: mutable implementation state, verification boundary, technical debt and next task.
 - `docs/DEVELOPMENT_POLICY.md`: branch naming, PR gate, new-module contract, review and merge rules.
+- `docs/ARCHITECTURE_INVARIANTS.md`: enforceable architecture invariants for analysis, passes, backend and simulator roles.
 - `AGENTS.md`: mandatory rules for human and AI-assisted development.
 - `.github/PULL_REQUEST_TEMPLATE.md`: structured completion and remote-safety checklist.
 - `.github/ISSUE_TEMPLATE/c1-module-change.yml`: planning template for a new module or milestone change.
@@ -43,6 +50,8 @@ The checked-in compiler provides:
 - Disassembly for generated raw binaries and C2-style images with a 64-byte `AECI` header.
 - A small Track-B semantic simulator for PTX-01 and PTX-02 executable differential tests, including BRX uniformity checks and branch traces.
 - PTX-01 and PTX-02 local differential coverage, including partial-warp and invalid-lane global-memory side-effect checks.
+- Explicit non-optimizing foundation pipelines and deterministic compilation reports.
+- Architecture guardrails and fixed O0 golden hashes for PTX-01/PTX-02.
 
 ## Known Gaps
 

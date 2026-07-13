@@ -1,0 +1,12 @@
+{
+  "PTX-01_vector_add.ptx": {
+    "profile": "track_b_v1",
+    "opt_level": "O0",
+    "sha256": "ca8ea0ef75bfce842769a8a655bf666bebc7d5db03c58d154dd19d1f18720ef4"
+  },
+  "PTX-02_invariant_poly.ptx": {
+    "profile": "track_b_v1",
+    "opt_level": "O0",
+    "sha256": "714860083b379180ef3872977d66a0ad5fe03cf16c7db772f1eded422c488051"
+  }
+}

@@ -1,7 +1,8 @@
-"""Minimal offline optimization agent for C1.
+"""Bootstrap agent interface for C1.
 
-The public C1 materials do not define the JSON schema yet.  This agent keeps a
-stable command alive and returns a conservative default configuration.
+The public C1 materials do not define the final request/report schema yet. This
+module keeps the command stable without claiming optimization capabilities that
+are not implemented by the compiler.
 """
 
 from __future__ import annotations
@@ -19,14 +20,9 @@ def choose_config(request: dict[str, Any] | None = None) -> dict[str, Any]:
         "compiler": "aec-cc",
         "profile": "track_b_v1",
         "opt_level": opt_level,
-        "passes": {
-            "constant_propagation": True,
-            "dce": True,
-            "cse": False,
-            "licm": False,
-            "list_scheduling": False,
-        },
-        "status": "bootstrap-default",
+        "pipeline": "foundation-only",
+        "enabled_passes": [],
+        "status": "bootstrap-default-no-optimization",
     }
 
 
