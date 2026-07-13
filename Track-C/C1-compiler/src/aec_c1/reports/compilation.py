@@ -79,11 +79,7 @@ class CompilationReport:
                 "official_golden_model": "not_available_not_run",
                 "official_cycle_model": "not_available_not_run",
             },
-            "notes": [
-                "M2.2-A pipelines contain analysis and validation passes only.",
-                "No scalar optimization pass is claimed by this report.",
-                "Official Cycle Model metrics are represented as null until provided by the evaluator.",
-            ],
+            "notes": _report_notes(self.passes),
         }
 
     def to_json(self) -> str:
@@ -94,7 +90,11 @@ class CompilationReport:
         path.write_text(self.to_json(), encoding="utf-8")
 
 
-def build_metrics(module: IRModule, lowered: LoweredProgram) -> dict[str, Any]:
+def build_metrics(
+    module: IRModule,
+    lowered: LoweredProgram,
+    pass_records: tuple[PassRecord, ...] = (),
+) -> dict[str, Any]:
     instructions = lowered.instructions
     source_instruction_count = sum(
         1 for item in module.function.program.items if not isinstance(item, str)
@@ -108,6 +108,9 @@ def build_metrics(module: IRModule, lowered: LoweredProgram) -> dict[str, Any]:
         if isinstance(value, int) and 0 <= value <= 255
     ]
     static_metrics = _build_static_metrics(lowered)
+    transforms_applied = sum(
+        int(record.details.get("transforms_applied", 0)) for record in pass_records
+    )
     return {
         "basic_block_count": len(module.function.blocks),
         "branch_count": branch_count,
@@ -115,11 +118,32 @@ def build_metrics(module: IRModule, lowered: LoweredProgram) -> dict[str, Any]:
         "highest_encoded_register_index": max(registers, default=0),
         "machine_instruction_count": len(instructions),
         "memory_instruction_count": memory_instruction_count,
-        "optimization_transforms_applied": 0,
+        "optimization_transforms_applied": transforms_applied,
         "source_instruction_count": source_instruction_count,
         "static_metrics": static_metrics,
         "cycle_model_metrics": _null_cycle_model_metrics(),
     }
+
+
+def _report_notes(pass_records: tuple[PassRecord, ...]) -> list[str]:
+    pass_names = {record.name for record in pass_records}
+    notes: list[str] = []
+    if "conservative-dead-result-elimination" in pass_names:
+        notes.extend(
+            [
+                "O2/O3 enable conservative elimination of never-read unpredicated pure results.",
+                "No general DCE, CSE, LICM, scheduling, register-allocation or GEMM optimization is claimed.",
+            ]
+        )
+    else:
+        notes.extend(
+            [
+                "O0 contains validation and analysis foundation passes only.",
+                "No scalar optimization pass is enabled by this report.",
+            ]
+        )
+    notes.append("Official Cycle Model metrics are represented as null until provided by the evaluator.")
+    return notes
 
 
 def _build_static_metrics(lowered: LoweredProgram) -> dict[str, Any]:
