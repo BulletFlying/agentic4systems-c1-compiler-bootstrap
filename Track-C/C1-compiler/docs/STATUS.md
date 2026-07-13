@@ -22,7 +22,7 @@ Organizer performance clarification recorded in `docs/PERFORMANCE_MODEL.md`: Tra
 | M1 PTX-01 correctness loop | Locally complete | Partial-warp and randomized differential tests exist |
 | M2.1 PTX-02 CFG/uniform-loop correctness | Locally complete | CFG, dominators, uniformity analysis and executable tests exist |
 | M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary golden fixtures exist |
-| M2.2 scalar optimization | In progress | O2/O3 include one conservative never-read pure-result elimination pass; no general DCE, CSE, LICM or block merge |
+| M2.2 scalar optimization | In progress | O2/O3 include conservative DRE, basic-block-local CSE and basic-block-local constant folding; no general DCE, global CSE, LICM or block merge |
 | M3 PTX-03 memory optimization | Not started | No memory optimization pass |
 | M4 PTX-04 regalloc/scheduling | Not started | Bootstrap allocation only |
 | M5 PTX-05 GEMM | Not started | No validated GEMM lowering |
@@ -43,19 +43,19 @@ Implemented framework modules:
 
 ## Pipeline status
 
-`-O0` keeps the validation/analysis foundation path and preserves the fixed PTX-01/PTX-02 O0 binary goldens. `-O2` and `-O3` now run `conservative-dead-result-elimination` before rebuilding CFG/uniformity facts and lower from the pass-updated `module.function.program`.
+`-O0` keeps the validation/analysis foundation path and preserves the fixed PTX-01/PTX-02 O0 binary goldens. `-O2` and `-O3` now run `conservative-dead-result-elimination`, `basic-block-local-cse` and `local-constant-folding` before rebuilding CFG/uniformity facts and lowering from the pass-updated `module.function.program`.
 
-The first transform removes only unpredicated, well-formed, explicitly whitelisted pure scalar instructions whose destination register is never read anywhere in source operands, address expressions or predicates. It does not claim general DCE, CSE, LICM, constant propagation, scheduling, register allocation or GEMM optimization support.
+The scalar transforms remain intentionally local and conservative. DRE removes only never-read unpredicated pure results. Local CSE rewrites only duplicate unpredicated pure expressions inside one local basic-block scope. Local constant folding folds only provable unpredicated pure immediates/constants inside one local block. The compiler still does not claim general DCE, global CSE, LICM, constant propagation, scheduling, register allocation or GEMM optimization support.
 
-For PTX-02, O2/O3 remove the never-read `mul.f32 %f15, %f1, %f2` while deliberately retaining the duplicate `%f5`/`%f6` adds for the next basic-block-local CSE step.
+For PTX-02, O2/O3 remove the never-read `mul.f32 %f15, %f1, %f2` and the duplicate `%f5`/`%f6` add through DRE and local CSE. Local constant folding currently targets constructed constant-expression coverage and is not a PTX-02-specific transform.
 
 ## Regression and guardrail status
 
 - PTX-01 and PTX-02 `-O0` Track-B raw binaries are guarded by fixed SHA256 golden fixtures.
-- O2/O3 PTX-02 machine code removes one instruction and reports `removed_instruction_count: 1` plus `optimization_transforms_applied: 1`.
-- Local simulator differential coverage compares O0 and O2 behavior for PTX-02.
-- Mutation coverage renames the kernel, dead register and labels to prove the transform is not public-testcase-specific.
-- Negative coverage preserves memory, control, predicated, predicate-result, carry-setting and unknown operations.
+- O2/O3 PTX-02 machine code is reduced by conservative scalar passes and reports pass-level transform counts.
+- Local simulator differential coverage compares O0 and optimized behavior for PTX-02.
+- Mutation coverage renames kernels, registers and labels to prove transforms are not public-testcase-specific.
+- Negative coverage preserves memory, control, predicated, predicate-result, carry-setting, unknown and cross-label cases.
 - Architecture guardrails cover the compiler facade, legacy lowering, future lowering/backend directories and pass implementations.
 - Guardrails use AST-level semantic dispatch checks rather than broad string matching.
 
@@ -66,7 +66,7 @@ For PTX-02, O2/O3 remove the never-read `mul.f32 %f15, %f1, %f2` while deliberat
 - Official Platform A/B indicators now recorded include per-SM register file, unified L1/Shared-Memory pool, max Shared Memory, bank organization, L2 cache, HBM memory/bandwidth, host interconnect, GPU interconnect and reference access latencies.
 - Slide-derived AEC indicators remain useful for C1 legality and local report estimates: warp width, CTA limit, predicate register count, AEC memory spaces, fixed AEC Shared Memory and LMEM capacity, and 128-byte memory-service assumptions.
 - Compilation reports expose an explicit `performance_target`, static instruction/memory-space metrics, warp-level 32-lane global-memory byte estimates and 128-byte service estimates, plus null placeholders for unavailable official Cycle Model metrics.
-- Pass reports and top-level metrics now expose the first observable optimization effect instead of hard-coding zero transforms.
+- Pass reports and top-level metrics expose observable optimization effects instead of hard-coding zero transforms.
 - Missing official Cycle Model metrics must be represented as unavailable or `null`; they must not be fabricated.
 
 ## Technical-debt register
@@ -110,10 +110,10 @@ Local completion does not mean official Golden Model, Cycle Model or grader appr
 
 ## Next single main task
 
-Implement basic-block-local CSE as the next narrow observable optimization:
+Implement the first deterministic Agent optimization loop:
 
-1. Match only unpredicated, side-effect-free expressions with identical opcode and operands inside one basic block.
-2. Invalidate an expression when any source operand is redefined.
-3. Rewrite later uses of the redundant destination to the dominating local value and remove only the redundant instruction.
-4. Keep memory, predicate, unknown and cross-block cases out of scope.
-5. Preserve O0 goldens and require executable differential, mutation and negative tests before merge.
+1. Compile a baseline configuration and a small set of enabled-pass candidates.
+2. Run the existing local correctness gate before accepting any candidate.
+3. Compare machine instruction count, branch count and static GMEM service metrics.
+4. Emit a machine-readable decision log with accepted/rejected candidates.
+5. Keep the Agent offline and deterministic; do not require LLM access for the baseline loop.
