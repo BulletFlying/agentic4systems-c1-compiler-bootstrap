@@ -15,6 +15,7 @@ CORE_SEMANTIC_PATHS = (
 CORE_SEMANTIC_DIRS = (
     SRC / "lowering",
     SRC / "backend",
+    SRC / "passes",
 )
 FORBIDDEN_ANALYSIS_IMPORTS = {
     "aec_c1.compiler",

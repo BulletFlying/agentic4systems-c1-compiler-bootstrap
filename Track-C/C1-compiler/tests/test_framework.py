@@ -24,6 +24,11 @@ def _load_ptx(name: str) -> str:
     return (ROOT / "testcases" / name).read_text(encoding="utf-8")
 
 
+def _load_o0_golden_hashes() -> dict[str, dict[str, str]]:
+    path = ROOT / "tests" / "fixtures" / "o0_binary_sha256.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_analysis_manager_caches_and_invalidates() -> None:
     text = _load_ptx("PTX-01_vector_add.ptx")
     module = module_from_program(text, parse_ptx(text))
@@ -161,6 +166,7 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
 
 
 def test_o0_facade_matches_quarantined_lowering_for_public_control_cases() -> None:
+    golden = _load_o0_golden_hashes()
     for name in ("PTX-01_vector_add.ptx", "PTX-02_invariant_poly.ptx"):
         text = _load_ptx(name)
         legacy = Lowerer(parse_ptx(text), profile=TRACK_B_V1).lower()
@@ -171,4 +177,7 @@ def test_o0_facade_matches_quarantined_lowering_for_public_control_cases() -> No
 
         assert current_blob == legacy_blob, name
         assert sha256(current_blob).hexdigest() == sha256(legacy_blob).hexdigest(), name
+        assert golden[name]["profile"] == TRACK_B_V1.name
+        assert golden[name]["opt_level"] == "O0"
+        assert sha256(current_blob).hexdigest() == golden[name]["sha256"], name
         assert current.parameter_offsets == legacy.parameter_offsets, name
