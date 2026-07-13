@@ -30,6 +30,7 @@ Repository context must be read from the repository rather than reconstructed fr
 - `docs/STATUS.md`: mutable implementation state, verification boundary, technical debt and next task.
 - `docs/DEVELOPMENT_POLICY.md`: branch naming, PR gate, new-module contract, review and merge rules.
 - `docs/ARCHITECTURE_INVARIANTS.md`: enforceable architecture invariants for analysis, passes, backend and simulator roles.
+- `docs/PERFORMANCE_MODEL.md`: organizer clarification and C1 performance-model planning for AI Inference optimization.
 - `AGENTS.md`: mandatory rules for human and AI-assisted development.
 - `.github/PULL_REQUEST_TEMPLATE.md`: structured completion and remote-safety checklist.
 - `.github/ISSUE_TEMPLATE/c1-module-change.yml`: planning template for a new module or milestone change.
@@ -62,6 +63,7 @@ The checked-in compiler provides:
 - No C1 official binary container layout is published, so `aec-cc` defaults to Track-B raw binary.
 - Register-pressure handling, spill code, DDG/list scheduling and tensor GEMM lowering are not implemented.
 - There is no public C1 Golden Model or Cycle Model in this repository, so current verification is local semantic simulation plus static encoding and CLI smoke testing.
+- The 2026-07-13 organizer clarification indicates that C performance optimization should use NVIDIA-like target-hardware parameters to build a performance model, but the numeric parameter sheet has not yet been recorded here.
 
 See `docs/STATUS.md` for the detailed debt register and next single main task.
 
