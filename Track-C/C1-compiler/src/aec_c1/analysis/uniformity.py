@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .ptx import PTXInstruction, PTXProgram
+from ..ptx import PTXInstruction, PTXProgram
 
 
 class Uniformity(str, Enum):
@@ -70,12 +70,11 @@ def analyze_uniformity(program: PTXProgram) -> UniformityFacts:
 
         if item.opcode.split(".")[0] == "bra" and item.predicate is not None:
             predicate = _normalize_predicate(item.predicate)
-            branch_state = values.get(predicate, Uniformity.UNKNOWN)
             facts.branch_states[index] = BranchUniformity(
                 item_index=index,
                 source_line=item.source_line,
                 predicate=predicate,
-                state=branch_state,
+                state=values.get(predicate, Uniformity.UNKNOWN),
             )
 
         facts.values_after[index] = dict(values)
@@ -110,16 +109,12 @@ def _result_uniformity(item: PTXInstruction, values: dict[str, Uniformity], uses
         return Uniformity.UNKNOWN
     if base in {"add", "sub", "mul", "mad", "and", "shr", "cvt", "setp"}:
         return merge_uniformity([_operand_uniformity(operand, values) for operand in uses])
-    if base == "st":
-        return Uniformity.UNKNOWN
     return Uniformity.UNKNOWN
 
 
 def _instruction_dest(item: PTXInstruction) -> str | None:
-    base = item.opcode.split(".")[0]
-    if base in {"ld", "mov", "add", "sub", "mul", "mad", "and", "shr", "cvt", "setp"}:
-        if item.operands:
-            return _normalize_register(item.operands[0])
+    if item.opcode.split(".")[0] in {"ld", "mov", "add", "sub", "mul", "mad", "and", "shr", "cvt", "setp"} and item.operands:
+        return _normalize_register(item.operands[0])
     return None
 
 
@@ -149,13 +144,7 @@ def _operand_uniformity(operand: str, values: dict[str, Uniformity]) -> Uniformi
 
 def _source_uniformity(source: str, values: dict[str, Uniformity]) -> Uniformity:
     source = _normalize_register(source)
-    if source in {"%ctaid", "%ctaid.x", "%ctaid.y", "%ctaid.z"}:
-        return Uniformity.UNIFORM
-    if source in {"%ntid", "%ntid.x", "%ntid.y", "%ntid.z"}:
-        return Uniformity.UNIFORM
-    if source in {"%nctaid", "%nctaid.x", "%nctaid.y", "%nctaid.z"}:
-        return Uniformity.UNIFORM
-    if source == "%warpid":
+    if source in {"%ctaid", "%ctaid.x", "%ctaid.y", "%ctaid.z", "%ntid", "%ntid.x", "%ntid.y", "%ntid.z", "%nctaid", "%nctaid.x", "%nctaid.y", "%nctaid.z", "%warpid"}:
         return Uniformity.UNIFORM
     if source in {"%tid", "%tid.x", "%tid.y", "%tid.z", "%laneid"}:
         return Uniformity.VARYING
@@ -166,9 +155,7 @@ def _normalize_operand(operand: str) -> str:
     operand = operand.strip()
     if operand.startswith("[") and operand.endswith("]"):
         operand = operand[1:-1].strip()
-    if operand.startswith("%p"):
-        return _normalize_predicate(operand)
-    return _normalize_register(operand)
+    return _normalize_predicate(operand) if operand.startswith("%p") else _normalize_register(operand)
 
 
 def _normalize_register(register: str) -> str:
@@ -177,9 +164,7 @@ def _normalize_register(register: str) -> str:
 
 def _normalize_predicate(predicate: str) -> str:
     predicate = predicate.strip()
-    if not predicate.startswith("%"):
-        predicate = f"%{predicate}"
-    return predicate
+    return predicate if predicate.startswith("%") else f"%{predicate}"
 
 
 def _is_immediate(operand: str) -> bool:
