@@ -82,6 +82,23 @@ def test_f32_constants_fold_with_hex_float_immediates() -> None:
     assert any(item.opcode == "mov.f32" and item.operands == ("%f3", "0f41100000") for item in instructions)
 
 
+def test_f32_overflow_preserves_original_instruction() -> None:
+    text = _kernel(
+        """
+    mov.f32 %f1, 0f7f7fffff;
+    add.f32 %f2, %f1, %f1;
+    st.global.f32 [%rd1], %f2;
+"""
+    )
+
+    optimized_program, result = _run_pass(text)
+    instructions = _instructions(optimized_program)
+
+    assert result.changed is False
+    assert result.details["folded_instruction_count"] == 0
+    assert any(item.opcode == "add.f32" and item.operands == ("%f2", "%f1", "%f1") for item in instructions)
+
+
 def test_register_redefinition_invalidates_constant() -> None:
     text = _kernel(
         """
