@@ -122,6 +122,7 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
         "validate-program",
         "conservative-dead-result-elimination",
         "basic-block-local-cse",
+        "local-constant-folding",
         "materialize-cfg",
         "record-uniformity",
     ]
@@ -134,6 +135,10 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert cse_record["details"]["removed_instruction_count"] == 1
     assert cse_record["details"]["replaced_destination_count"] == 1
     assert cse_record["details"]["replacements"] == ["%f6 -> %f5"]
+    constant_fold_record = payload["passes"][3]
+    assert constant_fold_record["changed"] is False
+    assert constant_fold_record["details"]["folded_instruction_count"] == 0
+    assert constant_fold_record["details"]["transforms_applied"] == 0
     assert payload["metrics"]["optimization_transforms_applied"] == 2
     assert payload["validation"]["official_golden_model"] == "not_available_not_run"
     assert payload["validation"]["official_cycle_model"] == "not_available_not_run"

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import replace
+import math
 import re
+import struct
 
 from ..analysis import AnalysisManager
 from ..ir import IRModule
@@ -30,6 +32,8 @@ _DESTINATION_BASES = _PURE_RESULT_BASES | {"ld", "setp"}
 _SIDE_EFFECTING_MODIFIERS = frozenset({"cc"})
 _REGISTER_REFERENCE_RE = re.compile(r"%[A-Za-z]+\d+")
 _DESTINATION_REGISTER_RE = re.compile(r"%[A-Za-z]+\d+")
+_INT32_TYPES = frozenset({"b32", "s32", "u32"})
+_LOCAL_CONSTANT_FOLD_BASES = frozenset({"add", "mov", "mul", "sub"})
 
 
 class ConservativeDeadResultEliminationPass:
@@ -75,38 +79,6 @@ class ConservativeDeadResultEliminationPass:
             details=details,
             invalidated_analyses=frozenset({"cfg", "uniformity"}),
         )
-
-
-def _collect_read_registers(program: PTXProgram) -> set[str]:
-    return set(_collect_read_register_counts(program))
-
-
-def _collect_read_register_counts(program: PTXProgram) -> Counter[str]:
-    reads = Counter[str]()
-    for item in program.items:
-        if not isinstance(item, str):
-            reads.update(_instruction_read_registers(item))
-    return reads
-
-
-def _is_removable_dead_result(inst: PTXInstruction, read_registers: set[str]) -> bool:
-    if inst.predicate is not None or not inst.operands:
-        return False
-
-    opcode_parts = inst.opcode.split(".")
-    base = opcode_parts[0]
-    expected_operand_count = _PURE_RESULT_OPERAND_COUNTS.get(base)
-    if expected_operand_count is None or len(inst.operands) != expected_operand_count:
-        return False
-    if _SIDE_EFFECTING_MODIFIERS.intersection(opcode_parts[1:]):
-        return False
-
-    destination = inst.operands[0].strip()
-    if _DESTINATION_REGISTER_RE.fullmatch(destination) is None:
-        return False
-    if destination.startswith("%p"):
-        return False
-    return destination not in read_registers
 
 
 class BasicBlockLocalCSEPass:
@@ -168,6 +140,93 @@ class BasicBlockLocalCSEPass:
             details=details,
             invalidated_analyses=frozenset({"cfg", "uniformity"}),
         )
+
+
+class LocalConstantFoldingPass:
+    """Fold provably constant unpredicated pure expressions within a local block."""
+
+    name = "local-constant-folding"
+
+    def run(self, module: IRModule, analyses: AnalysisManager) -> PassResult:
+        del analyses
+        program = module.function.program
+        constants: dict[str, tuple[str, int]] = {}
+        kept_items: list[str | PTXInstruction] = []
+        folded_destinations: list[str] = []
+
+        for item in program.items:
+            if isinstance(item, str):
+                constants.clear()
+                kept_items.append(item)
+                continue
+            if _is_constant_fold_boundary(item):
+                constants.clear()
+                kept_items.append(item)
+                continue
+
+            folded, known_constant = _fold_local_constant_instruction(item, constants)
+            destination = _destination_register(item)
+            if destination is not None:
+                if known_constant is None:
+                    constants.pop(destination, None)
+                else:
+                    constants[destination] = known_constant
+            if folded != item:
+                folded_destinations.append(destination or "<unknown>")
+            kept_items.append(folded)
+
+        folded_count = len(folded_destinations)
+        details = {
+            "folded_destinations": sorted(folded_destinations),
+            "folded_instruction_count": folded_count,
+            "transforms_applied": folded_count,
+        }
+        if folded_count == 0:
+            return PassResult(details=details)
+
+        module.function.program = PTXProgram(
+            kernel_name=program.kernel_name,
+            parameters=program.parameters,
+            registers=program.registers,
+            items=tuple(kept_items),
+        )
+        return PassResult(
+            changed=True,
+            details=details,
+            invalidated_analyses=frozenset({"cfg", "uniformity"}),
+        )
+
+
+def _collect_read_registers(program: PTXProgram) -> set[str]:
+    return set(_collect_read_register_counts(program))
+
+
+def _collect_read_register_counts(program: PTXProgram) -> Counter[str]:
+    reads = Counter[str]()
+    for item in program.items:
+        if not isinstance(item, str):
+            reads.update(_instruction_read_registers(item))
+    return reads
+
+
+def _is_removable_dead_result(inst: PTXInstruction, read_registers: set[str]) -> bool:
+    if inst.predicate is not None or not inst.operands:
+        return False
+
+    opcode_parts = inst.opcode.split(".")
+    base = opcode_parts[0]
+    expected_operand_count = _PURE_RESULT_OPERAND_COUNTS.get(base)
+    if expected_operand_count is None or len(inst.operands) != expected_operand_count:
+        return False
+    if _SIDE_EFFECTING_MODIFIERS.intersection(opcode_parts[1:]):
+        return False
+
+    destination = inst.operands[0].strip()
+    if _DESTINATION_REGISTER_RE.fullmatch(destination) is None:
+        return False
+    if destination.startswith("%p"):
+        return False
+    return destination not in read_registers
 
 
 def _split_cse_scopes(
@@ -265,6 +324,149 @@ def _cse_expression_key(inst: PTXInstruction) -> tuple[str, tuple[str, ...]] | N
     if _DESTINATION_REGISTER_RE.fullmatch(destination) is None or destination.startswith("%p"):
         return None
     return inst.opcode, tuple(operand.strip() for operand in inst.operands[1:])
+
+
+def _is_constant_fold_boundary(inst: PTXInstruction) -> bool:
+    if inst.predicate is not None:
+        return True
+    opcode_parts = inst.opcode.split(".")
+    base = opcode_parts[0]
+    if _SIDE_EFFECTING_MODIFIERS.intersection(opcode_parts[1:]):
+        return True
+    if base not in _LOCAL_CONSTANT_FOLD_BASES:
+        return True
+    if base == "mov":
+        return len(opcode_parts) != 2 or len(inst.operands) != 2
+    if base in {"add", "sub", "mul"}:
+        return len(opcode_parts) != 2 or len(inst.operands) != 3
+    return True
+
+
+def _fold_local_constant_instruction(
+    inst: PTXInstruction,
+    constants: dict[str, tuple[str, int]],
+) -> tuple[PTXInstruction, tuple[str, int] | None]:
+    opcode_parts = inst.opcode.split(".")
+    base, ptx_type = opcode_parts[0], opcode_parts[-1]
+    destination = _destination_register(inst)
+    if destination is None or destination.startswith("%p"):
+        return inst, None
+
+    if base == "mov":
+        known = _resolve_constant(inst.operands[1], ptx_type, constants)
+        if known is None:
+            return inst, None
+        folded_operand = _format_constant(known)
+        folded = replace(inst, operands=(destination, folded_operand))
+        return folded, known
+
+    lhs = _resolve_constant(inst.operands[1], ptx_type, constants)
+    rhs = _resolve_constant(inst.operands[2], ptx_type, constants)
+    if lhs is None or rhs is None:
+        return inst, None
+
+    if ptx_type == "u32" and base in {"add", "sub", "mul"}:
+        result = _evaluate_u32(base, lhs[1], rhs[1])
+        known = ("u32", result)
+    elif ptx_type == "f32" and base in {"add", "mul"}:
+        result = _evaluate_f32(base, lhs[1], rhs[1])
+        if result is None:
+            return inst, None
+        known = ("f32", result)
+    else:
+        return inst, None
+
+    folded = replace(inst, opcode=f"mov.{known[0]}", operands=(destination, _format_constant(known)))
+    return folded, known
+
+
+def _resolve_constant(
+    operand: str,
+    ptx_type: str,
+    constants: dict[str, tuple[str, int]],
+) -> tuple[str, int] | None:
+    operand = operand.strip()
+    if _DESTINATION_REGISTER_RE.fullmatch(operand):
+        known = constants.get(operand)
+        if known is None or not _constant_type_matches(known[0], ptx_type):
+            return None
+        return ptx_type, _coerce_constant_value(known[1], ptx_type)
+    return _parse_immediate_constant(operand, ptx_type)
+
+
+def _constant_type_matches(known_type: str, requested_type: str) -> bool:
+    if requested_type == "f32":
+        return known_type == "f32"
+    if requested_type in _INT32_TYPES:
+        return known_type in _INT32_TYPES
+    return known_type == requested_type
+
+
+def _coerce_constant_value(value: int, ptx_type: str) -> int:
+    if ptx_type in _INT32_TYPES or ptx_type == "f32":
+        return value & 0xFFFFFFFF
+    return value
+
+
+def _parse_immediate_constant(token: str, ptx_type: str) -> tuple[str, int] | None:
+    token = token.strip()
+    if ptx_type == "f32":
+        if not token.startswith("0f"):
+            return None
+        try:
+            return "f32", int(token[2:], 16) & 0xFFFFFFFF
+        except ValueError:
+            return None
+    if ptx_type in _INT32_TYPES:
+        if token.startswith("0f"):
+            return None
+        try:
+            return ptx_type, int(token, 0) & 0xFFFFFFFF
+        except ValueError:
+            return None
+    return None
+
+
+def _evaluate_u32(base: str, lhs: int, rhs: int) -> int:
+    if base == "add":
+        return (lhs + rhs) & 0xFFFFFFFF
+    if base == "sub":
+        return (lhs - rhs) & 0xFFFFFFFF
+    if base == "mul":
+        return (lhs * rhs) & 0xFFFFFFFF
+    raise ValueError(f"unsupported u32 fold op: {base}")
+
+
+def _evaluate_f32(base: str, lhs_bits: int, rhs_bits: int) -> int | None:
+    lhs = _bits_to_f32(lhs_bits)
+    rhs = _bits_to_f32(rhs_bits)
+    if base == "add":
+        value = lhs + rhs
+    elif base == "mul":
+        value = lhs * rhs
+    else:
+        return None
+    if not math.isfinite(value):
+        return None
+    try:
+        return _f32_to_bits(value)
+    except OverflowError:
+        return None
+
+
+def _bits_to_f32(bits: int) -> float:
+    return struct.unpack("!f", (bits & 0xFFFFFFFF).to_bytes(4, "big"))[0]
+
+
+def _f32_to_bits(value: float) -> int:
+    return struct.unpack("!I", struct.pack("!f", value))[0]
+
+
+def _format_constant(known: tuple[str, int]) -> str:
+    ptx_type, value = known
+    if ptx_type == "f32":
+        return f"0f{value & 0xFFFFFFFF:08x}"
+    return str(value & 0xFFFFFFFF)
 
 
 def _destination_register(inst: PTXInstruction) -> str | None:

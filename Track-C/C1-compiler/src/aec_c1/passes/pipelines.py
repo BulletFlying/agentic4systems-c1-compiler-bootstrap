@@ -9,7 +9,11 @@ from .foundation import (
     ValidateProgramPass,
 )
 from .manager import PassManager
-from .scalar import BasicBlockLocalCSEPass, ConservativeDeadResultEliminationPass
+from .scalar import (
+    BasicBlockLocalCSEPass,
+    ConservativeDeadResultEliminationPass,
+    LocalConstantFoldingPass,
+)
 
 
 def build_pipeline(opt_level: str) -> PassManager:
@@ -25,6 +29,7 @@ def build_pipeline(opt_level: str) -> PassManager:
                 ValidateProgramPass(),
                 ConservativeDeadResultEliminationPass(),
                 BasicBlockLocalCSEPass(),
+                LocalConstantFoldingPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
             ],
@@ -36,6 +41,7 @@ def build_pipeline(opt_level: str) -> PassManager:
                 ValidateProgramPass(),
                 ConservativeDeadResultEliminationPass(),
                 BasicBlockLocalCSEPass(),
+                LocalConstantFoldingPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
                 RecordLoopAnalysisPass(),

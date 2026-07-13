@@ -137,6 +137,10 @@ def _report_notes(pass_records: tuple[PassRecord, ...]) -> list[str]:
         scalar_notes.append(
             "O2/O3 enable basic-block-local CSE for conservative unpredicated pure expressions."
         )
+    if "local-constant-folding" in pass_names:
+        scalar_notes.append(
+            "O2/O3 enable basic-block-local constant folding for provable unpredicated pure expressions."
+        )
     if scalar_notes:
         notes.extend(scalar_notes)
         notes.extend(
