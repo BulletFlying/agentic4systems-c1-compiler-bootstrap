@@ -1,69 +1,86 @@
 # C1 Compiler Workspace
 
-This directory contains the current C1 PTX-style IR to AEC ISA compiler workspace. It is a bootstrap implementation, not a complete contest solution.
+This directory contains the current C1 PTX-to-AEC scalar compiler workspace. It is a bootstrap implementation, not a complete contest solution.
 
-## Entry Points
+## Active official baseline
 
-- `compiler/aec-cc`: PTX-style IR to AEC binary.
-- `disassembler/aec-objdump`: raw AEC binary disassembler.
-- `agent/run_agent`: conservative offline optimization-agent stub.
+The active baseline is the reduced C1 package observed on 2026-07-13 in `ephonic/Agentic4SystemSummerSchoolContest` commit `68a4aea16e69045e397d12333244f7974245d49c`.
 
-Run them from this directory:
+Key changes from the earlier working plan:
+
+- Input is a restricted NVIDIA PTX ISA 9.3 scalar subset.
+- Public tests are manifest-based directories: `kernel.ptx` + `manifest.json`.
+- Official scoring invokes `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json`.
+- `.aecbin` is a raw AEC 128-bit instruction stream, not a Header/Data/Reloc/Symbol object container.
+- PMEM parameter ABI is defined in the new `spec.md`.
+- C1 no longer requires Tensor/TMUL/low-precision GEMM.
+- T5 is FP32 scalar GEMM.
+- C1 no longer has an official Agent score.
+- Cycle Model will not be provided; performance modeling remains participant-side.
+
+See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary.
+
+## Entry points
+
+Required scoring entry point:
 
 ```bash
-python compiler/aec-cc testcases/PTX-01_vector_add.ptx -O0 -o build/PTX-01.aecbin
-python disassembler/aec-objdump build/PTX-01.aecbin
+python compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
+```
+
+Development tools retained in this repository:
+
+```bash
+python disassembler/aec-objdump output.aecbin
 python agent/run_agent
 ```
 
-## Project Governance
+`agent/run_agent` is now optional tooling, not an official C1 scoring entry point.
+
+## Project governance
 
 Repository context must be read from the repository rather than reconstructed from chat history:
 
+- `docs/OFFICIAL_SCOPE_UPDATE_20260713.md`: reduced official package summary and migration priorities.
 - `docs/C1_PROJECT_CHARTER.md`: mission, official scoring, architecture constraints, milestones and acceptance matrix.
 - `docs/PROJECT_OVERVIEW.md`: short project-level world model and source-of-truth map.
-- `docs/ROADMAP.md`: M0-M6 implementation route and phase gates.
+- `docs/ROADMAP.md`: implementation route and phase gates under the reduced C1 scope.
 - `docs/ARCHITECTURE.md`: compiler framework boundaries and dependency direction.
 - `docs/EVALUATION.md`: official score mapping, evidence tiers and merge-readiness checklist.
 - `docs/NON_GOALS.md`: scope boundaries and anti-drift rules.
-- `docs/AGENT_ARCHITECTURE.md`: report-driven Agent design and LLM boundary.
+- `docs/AGENT_ARCHITECTURE.md`: optional deterministic controller boundary after Agent scoring removal.
 - `docs/STATUS.md`: mutable implementation state, verification boundary, technical debt and next task.
 - `docs/DEVELOPMENT_POLICY.md`: branch naming, PR gate, new-module contract, review and merge rules.
 - `docs/ARCHITECTURE_INVARIANTS.md`: enforceable architecture invariants for analysis, passes, backend and simulator roles.
-- `docs/PERFORMANCE_MODEL.md`: organizer clarification and C1 performance-model planning for AI Inference optimization.
+- `docs/PERFORMANCE_MODEL.md`: participant-side performance-model planning.
 - `AGENTS.md`: mandatory rules for human and AI-assisted development.
 - `.github/PULL_REQUEST_TEMPLATE.md`: structured completion and remote-safety checklist.
 - `.github/ISSUE_TEMPLATE/c1-module-change.yml`: planning template for a new module or milestone change.
 
 The official repository `ephonic/Agentic4SystemSummerSchoolContest` must not be configured as a local Git remote. All project development belongs in `BulletFlying/agentic4systems-c1-compiler-bootstrap` and future non-emergency changes use a feature branch plus PR.
 
-## Current Scope
+## Current scope
 
-The checked-in compiler provides:
+The checked-in compiler currently provides:
 
-- Track-B Appendix A raw 128-bit instruction encoding.
-- A separated `c2_b3_v2` ISA profile boundary for the C2 tensor encoding.
-- PTX parsing for the public C1 syntax shape.
-- Basic lowering for parameter loads, special-register moves, integer/FP32 arithmetic, predicates, branches, global loads/stores, f16-to-f32 conversion and aligned u16 load expansion.
-- A CFG model with basic blocks, predecessor/successor edges, reverse-postorder traversal, dominators, backedge detection and natural-loop records.
-- A conservative uniformity lattice (`UNKNOWN`, `UNIFORM`, `VARYING`) used to prove PTX-02's fixed-count loop backedge is uniform while legalizing its varying boundary exit.
-- Raw binary output using `w0,w1,w2,w3` little-endian `uint32_t` order.
-- Disassembly for generated raw binaries and C2-style images with a 64-byte `AECI` header.
-- A small Track-B semantic simulator for PTX-01 and PTX-02 executable differential tests, including BRX uniformity checks and branch traces.
-- PTX-01 and PTX-02 local differential coverage, including partial-warp and invalid-lane global-memory side-effect checks.
-- Explicit non-optimizing foundation pipelines and deterministic compilation reports.
-- Architecture guardrails and fixed O0 golden hashes for PTX-01/PTX-02.
+- Raw 128-bit AEC instruction encoding and raw binary output using `w0,w1,w2,w3` little-endian `uint32_t` order.
+- PTX parsing for the earlier public C1 syntax shape.
+- Basic lowering for parameter loads, special-register moves, integer/FP32 arithmetic, predicates, branches and global loads/stores.
+- CFG, dominator, loop and conservative uniformity infrastructure.
+- Explicit O0/O2/O3 pipelines with conservative scalar passes: DRE, basic-block-local CSE and local constant folding.
+- Deterministic reports with static metrics.
+- Architecture guardrails and legacy regression fixtures.
+- A local simulator subset for bootstrap differential tests.
 
-## Known Gaps
+## Known gaps
 
-- PTX-02 is locally correctness-validated, but no real CSE, DCE, LICM, basic-block merge or performance scheduling pass is active.
-- Uniformity is currently a linear source-order analysis, not a CFG fixed-point analysis for arbitrary block reorder and joins.
-- `legacy_varying_branch_items` remains an unsafe compatibility escape hatch for unlegalized varying control and must not underpin later correctness claims.
-- PTX-03, PTX-04 and PTX-05 have not been executable-validated.
-- No C1 official binary container layout is published, so `aec-cc` defaults to Track-B raw binary.
-- Register-pressure handling, spill code, DDG/list scheduling and tensor GEMM lowering are not implemented.
-- There is no public C1 Golden Model or Cycle Model in this repository, so current verification is local semantic simulation plus static encoding and CLI smoke testing.
-- The 2026-07-13 organizer clarification indicates that C performance optimization should use NVIDIA-like target-hardware parameters to build a performance model. Slide-derived target indicators are recorded in `docs/PERFORMANCE_MODEL.md`, but the official Cycle Model schema and machine-readable parameter file are not available.
+- The compiler has not yet been realigned to the new `.visible .entry`, `.target sm_90`, `.address_size 64`, manifest-based public package shape.
+- Official public T1-T5 package executable validation has not been performed.
+- Parser/lowering coverage for the full new restricted PTX subset needs audit.
+- PMEM ABI and address ABI need explicit new-spec tests.
+- T3, T4 and T5 official-family implementations are not complete.
+- ARM Golden Model self-test integration is pending organizer release.
+- Optional Agent/controller work is no longer official-score critical.
 
 See `docs/STATUS.md` for the detailed debt register and next single main task.
 

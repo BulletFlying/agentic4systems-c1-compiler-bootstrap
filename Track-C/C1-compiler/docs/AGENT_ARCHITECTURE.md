@@ -1,93 +1,58 @@
-# C1 Agent Architecture
+# C1 Optional Optimization Controller
 
-This document defines the target Agent design for C1. It deliberately separates an optimization Agent from a chat assistant or code-writing LLM.
+The reduced official C1 scoring package no longer includes an Agent score. This document therefore defines Agent/controller code as optional repository tooling, not as an official C1 requirement.
 
-## Agent goal
+## Current role
 
-The Agent exists to improve generated-code performance through an automated, correctness-gated feedback loop. It should observe compiler reports and benchmark results, propose a compilation configuration, recompile, verify correctness, compare performance, and record the final decision.
+A deterministic controller may still be useful to compare compiler pass configurations, run local correctness gates and emit decision logs. It must not be used to claim an official Agent score, and it must not distract from the scoring-critical `-O2` compiler path.
 
-The Agent is part of the C1 scoring path only when it changes compiler configuration based on measured evidence. Returning a static JSON object is a command stub, not an optimizing Agent.
+The official evaluator invokes:
 
-The slide-deck scoring split is 8 points for Agent-driven performance and 2 points for loop completeness. The performance metric is the geometric mean over ten Agent ratios:
-
-```text
-GM_agent = (product r_i^agent)^(1/10)
+```bash
+compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
 ```
 
-`GM_agent >= 1.25` receives the full Agent performance score. This reinforces that the evaluated Agent must run a closed loop; merely calling or not calling an LLM is not the scoring criterion.
+Therefore any optional controller work is valuable only when it helps improve or validate the normal compiler pipeline.
 
-## Required loop
+## Valid optional loop
 
-The final Agent loop should be:
+A safe local controller may:
 
 ```text
-input workload / report
-  -> read current compiler capabilities
-  -> select candidate configuration
-  -> run compiler
-  -> run validator / local or official checker
-  -> reject incorrect candidate
-  -> read cycle/performance report
-  -> compare against default
-  -> update search state
-  -> emit final config and optimization report
+read a PTX kernel and manifest context if available
+  -> compile baseline and candidate pass configurations
+  -> run local/official correctness gates where available
+  -> reject incorrect candidates
+  -> compare deterministic static metrics or auxiliary performance data
+  -> emit a machine-readable decision log
 ```
 
-The official loop-completeness expectation is: independent run, read performance report, recompile with adjusted configuration, verify result, and generate final optimization report.
+It must not mutate compiler source code during evaluation. It must not require network access or online LLM inference. It must not use public testcase names, filenames, fixed registers, fixed labels, hashes or public matrix sizes as semantic triggers.
 
-## Components
+## LLM boundary
 
-Planner: chooses the search scope for the current benchmark family and optimization level.
+Online LLM inference is not required for C1. It may be useful outside the evaluated compiler path for human planning, but the repository baseline should remain deterministic and offline.
 
-Pass selector: enables or disables implemented passes only. It must not claim `DCE`, `CSE`, `LICM`, scheduling, or GEMM passes until those passes exist and are wired into the compiler.
+A wrapper that calls an LLM but cannot compile, verify and compare outputs is not meaningful compiler optimization infrastructure.
 
-Parameter selector: chooses safe compiler parameters such as optimization level, pass order, tiling options, unroll limits, or scheduling policies after those options are implemented.
+## Truthfulness contract
 
-Benchmark runner: invokes `aec-cc`, captures reports, invokes validation, and records failure reasons.
+The controller may enable only passes that actually exist and are wired into the compiler. It must not claim general DCE, global CSE, LICM, scheduling, register allocation, memory optimization or GEMM optimization until those components are implemented and tested.
 
-Analyzer: reads deterministic compilation reports, correctness status, and performance metrics such as cycles, instruction count, spill count, dual issue rate, memory transactions, and stalls when available.
-
-Knowledge base: stores candidate outcomes and avoids retrying known-bad configurations.
-
-Final reporter: emits a reproducible summary of selected configuration, evidence, rejected candidates, correctness status, and performance comparison.
-
-## LLM policy
-
-Online LLM inference is not required for correctness. It may be useful outside the evaluation loop for planning or human-assisted exploration, but the evaluated Agent must be reproducible and must not depend on network access.
-
-A valid Agent may be a deterministic search program. An LLM wrapper that cannot run, verify, and compare compiler outputs is not sufficient.
-
-## Current stub contract
-
-Until real optimization passes and performance reports exist, the Agent must remain truthful:
+Valid pass labels should correspond to implemented pass records such as:
 
 ```json
 {
-  "pipeline": "foundation-only",
-  "enabled_passes": [],
-  "status": "bootstrap-default-no-optimization"
+  "enabled_passes": [
+    "conservative-dead-result-elimination",
+    "basic-block-local-cse",
+    "local-constant-folding"
+  ]
 }
 ```
 
-It must not return flags implying that constant propagation, DCE, CSE, LICM, scheduling, or GEMM optimization are active.
+When no optimization is selected or no safe candidate improves the chosen metric, the controller should say so explicitly rather than fabricating progress.
 
-## Future configuration surface
+## Relationship to open work
 
-The Agent may eventually control:
-
-```json
-{
-  "opt_level": "O2",
-  "enabled_passes": ["constant-fold", "dce"],
-  "pass_order": ["constant-fold", "dce", "simplify-cfg"],
-  "licm": {"enabled": true, "max_loop_depth": 2},
-  "scheduler": {"policy": "latency-aware-list"},
-  "gemm": {"tile_m": 16, "tile_n": 16, "tile_k": 32}
-}
-```
-
-This schema is illustrative only. A field becomes legal only after the compiler implements it, tests it, and reports it truthfully.
-
-## Safety rules
-
-The Agent must never select behavior from public filenames or test IDs. It must never accept a faster candidate that fails correctness. It must never mutate compiler source code during evaluation. It must not hide failed candidates; failures are part of the optimization report.
+Any PR that implements a deterministic optimization loop should be reviewed as optional development tooling. It should not be treated as completing an official M6 milestone, because the new C1 `scoring.md` has no Agent category.
