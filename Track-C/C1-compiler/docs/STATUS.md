@@ -45,6 +45,29 @@ Implemented framework modules:
 
 The current pipeline records validation and analysis stages only. It does not claim DCE, CSE, LICM, constant propagation, scheduling or GEMM optimization support.
 
+## Technical-debt register
+
+### High priority
+
+1. `legacy_varying_branch_items` remains a temporary compatibility escape hatch and is not a general correctness solution for future PTX-03/04/05 claims.
+2. Uniformity analysis still has source-order limitations and must evolve toward CFG fixed-point dataflow before arbitrary block transformations.
+3. New optimization functionality must not expand `compiler.py`; ownership belongs to IR, analysis, passes and lowering boundaries.
+
+### Medium priority
+
+1. Temporary registers R240-R255 currently rely on instruction-local lifetime assumptions. Future multi-instruction expansion requires explicit lifetime management or virtual-register IR.
+2. PTX 64-bit pointer handling needs an explicit address legalization contract.
+3. The simulator is a local semantic checker only and is not the official competition oracle.
+
+## Organizer clarification
+
+Still unresolved from public materials:
+
+- Exact C1 `.aecbin` Header/Code/Data/Relocation/Symbol Table layout.
+- Formal PMEM kernel-parameter ABI.
+- Whether C1 T5 uses Track-B scalar ISA, C2/B3 tensor extensions, or another frozen profile.
+- Availability and interface of the official C1 Golden Model, Cycle Model, validator and scoring script.
+
 ## Verification boundary
 
 Local completion does not mean official Golden Model, Cycle Model or grader approval.
