@@ -1,135 +1,140 @@
 # C1 Evaluation Mapping
 
-This document maps repository work to official C1 scoring. It prevents work that looks useful but does not improve the contest deliverable.
+This document maps repository work to the active reduced official C1 scoring package observed on 2026-07-13 at official commit `68a4aea16e69045e397d12333244f7974245d49c`.
 
 ## Official score model
 
-The official C1 score is 100 points:
+The active C1 score is 100 points:
 
 | Official category | Points | Engineering meaning |
 |---|---:|---|
-| A. Compile and execution correctness | 50 | Generate valid AEC binary and match Golden Model output |
-| B. Generated code efficiency | 35 | Reduce AEC Cycle Model `total_cycles` on correct cases only |
-| C. Generalization and robustness | 5 | Survive automatic mutation variants, not only public PTX shape |
-| D. Agent optimization | 10 | Use an automated loop to improve performance and report the result |
+| A. Compile and execution correctness | 50 | Produce a valid raw `.aecbin`, execute it under the evaluator, and match the manifest-defined output |
+| B. Generated code efficiency | 40 | Improve correct cases against the official baseline compiler |
+| C. Generalization and robustness | 10 | Survive 50 mutation variants without public-case assumptions |
 
-Correctness gates performance. If a compiled binary fails validation or Golden Model comparison, that case contributes no performance score.
+There is no official C1 Agent score in the new `scoring.md`.
 
-The C1 slide-deck scoring details are:
+The evaluator runs:
 
-```text
-correctness = T1*4 + T2*8 + T3*10 + T4*12 + T5*16
-performance = 35 points, main metric AEC Cycle Model total cycles
-robustness = 5 points across 50 mutation tests
-agent = 8 performance points + 2 loop-completeness points
+```bash
+compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
 ```
+
+`-O2` is therefore the scoring-critical pipeline. `-O0` may remain as a local regression baseline, but it is not the official scoring invocation.
 
 ## Correctness mapping
 
-Official correctness uses 100 hidden tests across five categories.
+Correctness is evaluated on 100 hidden tests, 20 per family:
 
-| Category | Hidden tests | Public representative | Required compiler capabilities |
+| Category | Hidden tests | Public package family | Required capabilities |
 |---|---:|---|---|
-| T1 basic lowering | 20 | PTX-01 vector_add | parser, parameter ABI, arithmetic, global load/store, predicates, binary encoding |
-| T2 control/scalar | 20 | PTX-02 invariant_poly | CFG, predicates, uniformity, DCE, CSE, LICM, block simplification |
-| T3 memory | 20 | PTX-03 repeated_reuse | memory facts, reuse, coalescing, shared-memory legality |
-| T4 register/scheduling | 20 | PTX-04 reg_schedule | liveness, register allocation, spill, DDG, list scheduling, dual issue |
-| T5 Tensor/GEMM | 20 | PTX-05 gemm_f16 | GEMM detection, precision handling, tiling, tensor load/store or scalar fallback |
+| T1 basic lowering | 20 | `T1_basic_lowering` | PTX 9.3 restricted scalar parsing, params, special registers, arithmetic, global load/store, branch, `ret -> HALT` |
+| T2 scalar optimization | 20 | `T2_scalar_optimization` | constants, dead-code deletion, CSE, LICM, basic-block merge/simplification |
+| T3 memory access optimization | 20 | `T3_memory_reuse` | global memory access, repeated loads, load hoisting, simple reuse, address-computation optimization |
+| T4 register allocation and scheduling | 20 | `T4_register_scheduling` | GPR/predicate allocation, live-range management, register pressure, load/compute interleaving, dependency scheduling |
+| T5 FP32 scalar GEMM | 20 | `T5_scalar_gemm` | FP32 scalar GEMM, 2D indexing, K-loop lowering, address computation, scalar multiply-add scheduling |
 
-Current local tests are not equivalent to official correctness. They are necessary bootstrap evidence only. Official Golden Model, Cycle Model, validator, and final object format remain external blockers unless later added to the repository.
-
-The public C1 benchmark set shown in the slide deck is:
-
-```text
-PTX-01 vector_add
-PTX-02 invariant_poly
-PTX-03 repeated_reuse
-PTX-04 reg_schedule
-PTX-05 gemm_f16
-```
+Each testcase is described by `kernel.ptx` plus `manifest.json`. The manifest specifies kernel name, grid/block dimensions, parameters, buffers and output checking. Repository tests should therefore move from single-file assumptions toward manifest-aware execution scaffolding.
 
 ## Performance mapping
 
-Official performance uses the AEC Cycle Model `total_cycles`. Diagnostic metrics such as `instruction_count`, `spill_count`, `dual_issue_rate`, `memory_transactions`, and `stall_cycles` are useful for debugging but are not themselves the final score.
+Performance is computed only for correctness-passing cases. The official evaluator compares participant output to the official baseline compiler:
 
-| Category | Performance points | What must eventually improve |
+```text
+r_i = baseline_i / participant_i
+```
+
+The lower participant metric is better. Category performance uses geometric-mean speedup and maps to score bands. Performance weights are:
+
+| Category | Performance points | What must improve |
 |---|---:|---|
 | T1 | 0 | correctness only |
-| T2 | 5 | scalar redundancy, loop invariants, block simplification |
-| T3 | 9 | memory transactions and reuse |
-| T4 | 10 | register pressure, spills, latency hiding, dual issue |
-| T5 | 11 | GEMM tiling, tensor/scalar mapping, precision and boundary handling |
+| T2 | 8 | scalar redundancy, loop invariants, block simplification |
+| T3 | 10 | memory-instruction reduction, load reuse, hoisting, address optimization |
+| T4 | 10 | register pressure, live ranges, dependency scheduling, load/compute interleaving |
+| T5 | 12 | FP32 scalar GEMM address/loop/multiply-add optimization |
 
-No performance claim is valid unless the same case is correct. A faster wrong binary is a regression.
+The public `Track-C/hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement.
 
-The slide-deck normalization formula is:
+## Diagnostic report fields
 
-```text
-r_{g,i} = T^{base}_i / T_{g,i}
-p(r) = clip((log r - log 0.5) / (log 2 - log 0.5), 0, 1)
-```
-
-Interpretation:
+The new scoring document lists these non-direct-scoring diagnostics:
 
 ```text
-<= 0.5x baseline speed -> 0%
-1.0x baseline speed    -> 50%
->= 2.0x baseline speed -> 100%
+instruction_count
+register_count
+predicate_count
+spill_count
+branch_count
+load_count
+store_count
+memory_instruction_ratio
+estimated_dependency_depth
 ```
+
+Repository compile reports should prioritize these fields, while keeping older static metrics only when useful and clearly labeled.
 
 ## Robustness mapping
 
-Official robustness uses 50 mutation variants. Mutations include parameter changes, register renaming, basic-block reorder, loop-trip changes, dead-code insertion, register-pressure increase, PTX-05 data-type changes, and memory-reuse pattern changes.
-
-Repository guardrails and tests must therefore reject hard-coded public-case behavior. The following are forbidden as semantic dispatch triggers in compiler, lowering, backend, and pass logic:
+Robustness uses 50 variants: 10 variants per T1-T5 family. The new official mutation dimensions include:
 
 ```text
-filename / testcase / PTX-01..PTX-05 / source hash / fixed register / fixed label / fixed instruction index
+parameter scale changes
+grid/block dimension changes
+register renaming
+basic-block order changes
+loop-count changes
+dead-code insertion
+irrelevant computation insertion
+register-pressure increase
+address-computation changes
+memory-access-pattern changes
+scalar GEMM size changes
 ```
 
-Tests and docs may mention public case names. Compiler logic may not use them to choose semantics.
-
-## Agent mapping
-
-Official Agent score is 10 points: 8 for performance improvement and 2 for loop completeness. The Agent must independently run, read a performance report, adjust compilation configuration, recompile, verify results, and generate a final optimization report.
-
-The slide-deck Agent performance metric is:
+Forbidden semantic dispatch triggers in compiler, lowering, backend and pass code remain:
 
 ```text
-GM_agent = (product r_i^agent)^(1/10)
+filename / public testcase directory / source hash / fixed register / fixed label / fixed instruction index / fixed public matrix size
 ```
 
-`GM_agent >= 1.25` receives the full Agent performance score. The remaining loop-completeness points require independent execution, report reading, recompilation, verification, and final report generation.
+Tests and docs may mention public cases. Production compiler logic may not use them to select semantics.
 
-The Agent does not need online LLM inference for correctness. LLM-assisted exploration is optional and outside the reproducible evaluation boundary. The evaluated behavior must be deterministic enough to reproduce and must not claim unimplemented passes.
+## Removed or downgraded old evaluation assumptions
 
-Current status: the Agent is a truthful bootstrap stub with `enabled_passes: []` and `pipeline: foundation-only`. It is not yet an optimizing Agent.
+These are no longer active C1 scoring requirements under the reduced package:
+
+- Agent performance score and loop-completeness score.
+- AEC Cycle Model availability for participants.
+- TMUL, Tensor Load/Store, tensor registers, tensor tiling and low-precision GEMM.
+- FP4, FP8, BF16, FP16, INT4, INT8 or INT32 GEMM hidden precision matrix.
+- Header/Data/Relocation/Symbol object container for `.aecbin`.
+
+Agent work may still be useful as optional local automation, but it is not score-aligned unless it improves the normal `-O2` compiler pipeline and does not become a separate required entry point.
 
 ## Evidence tiers
-
-Use the following evidence tiers when writing PR descriptions or status updates.
 
 Tier 0: static evidence. Examples: `compileall`, import graph checks, architecture guardrails, line-count checks.
 
 Tier 1: unit evidence. Examples: parser behavior, encoder fields, analysis cache, pass manager ordering, report determinism.
 
-Tier 2: executable local evidence. Examples: simulator differential tests for PTX-01/PTX-02, invalid-lane GMEM side-effect checks, O0 golden binary hash.
+Tier 2: executable local evidence. Examples: local simulator differential tests, O0/O2 binary regression, public manifest harness.
 
-Tier 3: official-model evidence. Examples: official binary validator, Golden Model comparison, Cycle Model `total_cycles`. This tier is currently not available in the public bootstrap repository.
+Tier 3: official Golden Model evidence. The organizers plan to release an ARM AEC Golden Model for correctness self-test; record exact command and result when available.
 
-Tier 4: Agent-loop evidence. Examples: report-driven candidate search, correctness-gated recompile, measured performance comparison, final optimization report.
+Tier 4: performance-model evidence. Examples: static report comparison, baseline-vs-candidate comparison, auxiliary real-GPU profiling clearly labeled as non-official.
 
-A merge can improve local engineering state without increasing official readiness. The PR must state which tier was actually run.
+A PR must say which tier was actually run. Do not write “official correctness passed” until the official Golden Model has actually run.
 
 ## Merge readiness checklist
 
-A change is not score-aligned unless it answers these questions:
+A change is score-aligned only if it answers:
 
-1. Which official category and testcase family does it target?
-2. What correctness evidence exists?
-3. What mutation/generalization evidence exists?
-4. Does it change O0 behavior or only O2/O3 behavior?
-5. Does it update deterministic reports and status docs truthfully?
+1. Which T1-T5 family does it target?
+2. Does it affect the official `-O2` path?
+3. What correctness evidence exists?
+4. What mutation/generalization evidence exists?
+5. Does it update deterministic reports truthfully?
 6. Does it preserve architecture guardrails?
 7. Does it avoid public-case semantic dispatch?
-8. Was the official Golden/Cycle Model unavailable, not run, or passed?
+8. Was official ARM Golden Model unavailable, not run, or passed?
