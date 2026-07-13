@@ -128,7 +128,7 @@ Minimum model dimensions:
 |---|---|---|
 | Instruction mix | Estimate scalar, memory and tensor pressure | Guide pass selection and scheduling work |
 | Register pressure | Estimate spill risk and occupancy loss | Bound CSE, LICM, unroll and tiling aggressiveness |
-| Global-memory traffic | Estimate 128-byte line transactions and bandwidth bottlenecks | Guide load reuse and memory coalescing work |
+| Global-memory traffic | Estimate warp-level 128-byte service transactions and bandwidth bottlenecks | Guide load reuse and memory coalescing work |
 | Shared-memory use | Estimate promotion benefit, bank behavior and per-block capacity pressure | Guide PTX-03 and GEMM tiling work |
 | Data movement | Track GMEM/SMEM/register movement cost | Explain bottleneck migration after optimization |
 | Dependency depth | Estimate latency hiding and scheduling opportunity | Guide DDG/list-scheduling work |
@@ -153,8 +153,10 @@ Future compilation reports should expose model inputs and pass effects in machin
     "branch_count": 0,
     "gmem_loads": 0,
     "gmem_stores": 0,
-    "estimated_gmem_bytes": 0,
-    "estimated_gmem_lines_128b": 0,
+    "assumed_warp_lanes": 32,
+    "memory_service_bytes": 128,
+    "estimated_gmem_bytes_per_warp": 0,
+    "estimated_gmem_128b_services_per_warp": 0,
     "smem_ops": 0,
     "estimated_smem_bytes_per_cta": null,
     "estimated_register_pressure": null,
@@ -179,7 +181,7 @@ Future compilation reports should expose model inputs and pass effects in machin
 }
 ```
 
-Use `null` for unavailable official metrics. Do not fabricate official Cycle Model data. Auxiliary real-GPU profiling metrics must be labeled as auxiliary and must not be presented as AEC Cycle Model results.
+Use `null` for unavailable official metrics. Do not fabricate official Cycle Model data. Auxiliary real-GPU profiling metrics must be labeled as auxiliary and must not be presented as AEC Cycle Model results. Static global-memory traffic fields are warp-level estimates under the current 32-lane, 128-byte service assumption; they are not official measured Cycle Model transactions.
 
 ## Optimization implications by milestone
 
