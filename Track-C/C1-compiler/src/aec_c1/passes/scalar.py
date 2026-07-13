@@ -81,38 +81,6 @@ class ConservativeDeadResultEliminationPass:
         )
 
 
-def _collect_read_registers(program: PTXProgram) -> set[str]:
-    return set(_collect_read_register_counts(program))
-
-
-def _collect_read_register_counts(program: PTXProgram) -> Counter[str]:
-    reads = Counter[str]()
-    for item in program.items:
-        if not isinstance(item, str):
-            reads.update(_instruction_read_registers(item))
-    return reads
-
-
-def _is_removable_dead_result(inst: PTXInstruction, read_registers: set[str]) -> bool:
-    if inst.predicate is not None or not inst.operands:
-        return False
-
-    opcode_parts = inst.opcode.split(".")
-    base = opcode_parts[0]
-    expected_operand_count = _PURE_RESULT_OPERAND_COUNTS.get(base)
-    if expected_operand_count is None or len(inst.operands) != expected_operand_count:
-        return False
-    if _SIDE_EFFECTING_MODIFIERS.intersection(opcode_parts[1:]):
-        return False
-
-    destination = inst.operands[0].strip()
-    if _DESTINATION_REGISTER_RE.fullmatch(destination) is None:
-        return False
-    if destination.startswith("%p"):
-        return False
-    return destination not in read_registers
-
-
 class BasicBlockLocalCSEPass:
     """Eliminate repeated unpredicated pure expressions inside one local scope."""
 
@@ -227,6 +195,38 @@ class LocalConstantFoldingPass:
             details=details,
             invalidated_analyses=frozenset({"cfg", "uniformity"}),
         )
+
+
+def _collect_read_registers(program: PTXProgram) -> set[str]:
+    return set(_collect_read_register_counts(program))
+
+
+def _collect_read_register_counts(program: PTXProgram) -> Counter[str]:
+    reads = Counter[str]()
+    for item in program.items:
+        if not isinstance(item, str):
+            reads.update(_instruction_read_registers(item))
+    return reads
+
+
+def _is_removable_dead_result(inst: PTXInstruction, read_registers: set[str]) -> bool:
+    if inst.predicate is not None or not inst.operands:
+        return False
+
+    opcode_parts = inst.opcode.split(".")
+    base = opcode_parts[0]
+    expected_operand_count = _PURE_RESULT_OPERAND_COUNTS.get(base)
+    if expected_operand_count is None or len(inst.operands) != expected_operand_count:
+        return False
+    if _SIDE_EFFECTING_MODIFIERS.intersection(opcode_parts[1:]):
+        return False
+
+    destination = inst.operands[0].strip()
+    if _DESTINATION_REGISTER_RE.fullmatch(destination) is None:
+        return False
+    if destination.startswith("%p"):
+        return False
+    return destination not in read_registers
 
 
 def _split_cse_scopes(
@@ -448,7 +448,10 @@ def _evaluate_f32(base: str, lhs_bits: int, rhs_bits: int) -> int | None:
         return None
     if not math.isfinite(value):
         return None
-    return _f32_to_bits(value)
+    try:
+        return _f32_to_bits(value)
+    except OverflowError:
+        return None
 
 
 def _bits_to_f32(bits: int) -> float:
