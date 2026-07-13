@@ -18,6 +18,8 @@ Key changes from the earlier working plan:
 - C1 no longer has an official Agent score.
 - Cycle Model will not be provided; performance modeling remains participant-side.
 
+The root `spec.md` and `scoring.md` in this directory are now replaced with the reduced official versions. The public manifest-based package from the official archive is mirrored under `official_testcases/20260713/` for local alignment work. Legacy public PTX-01/PTX-02 regression fixtures remain separate and must not be treated as the active official package.
+
 See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary.
 
 ## Entry points
@@ -41,6 +43,9 @@ python agent/run_agent
 
 Repository context must be read from the repository rather than reconstructed from chat history:
 
+- `spec.md`: active reduced official C1 language, AEC opcode, ABI and raw `.aecbin` specification.
+- `scoring.md`: active reduced official 50/40/10 C1 scoring model.
+- `official_testcases/20260713/`: mirrored public T1-T5 package from the reduced official archive.
 - `docs/OFFICIAL_SCOPE_UPDATE_20260713.md`: reduced official package summary and migration priorities.
 - `docs/C1_PROJECT_CHARTER.md`: mission, official scoring, architecture constraints, milestones and acceptance matrix.
 - `docs/PROJECT_OVERVIEW.md`: short project-level world model and source-of-truth map.
@@ -64,7 +69,7 @@ The official repository `ephonic/Agentic4SystemSummerSchoolContest` must not be 
 The checked-in compiler currently provides:
 
 - Raw 128-bit AEC instruction encoding and raw binary output using `w0,w1,w2,w3` little-endian `uint32_t` order.
-- PTX parsing for the earlier public C1 syntax shape.
+- PTX parsing for the earlier public C1 syntax shape, with official-package coverage still under audit.
 - Basic lowering for parameter loads, special-register moves, integer/FP32 arithmetic, predicates, branches and global loads/stores.
 - CFG, dominator, loop and conservative uniformity infrastructure.
 - Explicit O0/O2/O3 pipelines with conservative scalar passes: DRE, basic-block-local CSE and local constant folding.
@@ -74,10 +79,10 @@ The checked-in compiler currently provides:
 
 ## Known gaps
 
-- The compiler has not yet been realigned to the new `.visible .entry`, `.target sm_90`, `.address_size 64`, manifest-based public package shape.
-- Official public T1-T5 package executable validation has not been performed.
+- New public T1-T5 package has been mirrored but not yet compile-smoked through `-O2`.
 - Parser/lowering coverage for the full new restricted PTX subset needs audit.
 - PMEM ABI and address ABI need explicit new-spec tests.
+- Manifest-aware compile/run harness is not implemented.
 - T3, T4 and T5 official-family implementations are not complete.
 - ARM Golden Model self-test integration is pending organizer release.
 - Optional Agent/controller work is no longer official-score critical.

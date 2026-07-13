@@ -16,18 +16,20 @@ Observed official C1 baseline: `ephonic/Agentic4SystemSummerSchoolContest` commi
 
 The reduced official package supersedes older assumptions: raw `.aecbin` stream is defined, PMEM ABI is defined, C1 Agent scoring is removed, C1 Cycle Model will not be provided, Tensor/TMUL/low-precision GEMM are not required, T5 is FP32 scalar GEMM, and evaluation uses `-O2`.
 
+Local repository alignment now records the active official package directly: root `spec.md` and `scoring.md` have been replaced with the reduced official versions, and the public manifest-based T1-T5 package is mirrored under `official_testcases/20260713/` without deleting legacy regression fixtures.
+
 ## Milestone state
 
 | Milestone | State | Evidence boundary |
 |---|---|---|
-| M0 ISA/CLI/encoder baseline | Locally complete, needs official-rescope audit | Track-B-style raw encoder/decoder and smoke checks exist; must be audited against the new opcode/type/space table |
-| M1/T1 basic lowering | Partially complete under old public syntax | Older PTX-01 coverage exists; new `.visible .entry`, `.target sm_90`, `.address_size 64`, manifest and `ld.global.*` package alignment is not complete |
+| M0 ISA/CLI/encoder baseline | Locally complete, needs official-rescope audit | Raw encoder/decoder and smoke checks exist; must be audited against the new opcode/type/space table now copied into root `spec.md` |
+| M1/T1 basic lowering | Partially complete under old executable harness | New public T1 fixture is mirrored; parser/lowering and `-O2` compile/report smoke have not yet been proven on the new package |
 | M2.1 CFG/uniform-loop correctness | Locally complete under old PTX-02 shape | CFG, dominators, uniformity analysis and executable tests exist; must be revalidated on new T2 public package |
 | M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary fixtures exist |
 | M2.2 scalar optimization | In progress | O2/O3 include conservative DRE, basic-block-local CSE and basic-block-local constant folding; no general DCE, global CSE, LICM or block merge |
-| M3/T3 memory access optimization | Not started | No memory optimization pass or new T3 manifest harness |
-| M4/T4 register allocation and scheduling | Not started | Bootstrap allocation only |
-| M5/T5 FP32 scalar GEMM | Not started | No validated scalar GEMM lowering under new T5 package |
+| M3/T3 memory access optimization | Not started | New T3 public fixture is mirrored; no memory optimization pass or manifest-aware execution harness |
+| M4/T4 register allocation and scheduling | Not started | New T4 public fixture is mirrored; bootstrap allocation only |
+| M5/T5 FP32 scalar GEMM | Not started | New T5 public fixture is mirrored; no validated scalar GEMM lowering under new package |
 | Optional controller/tooling | Optional, not official scoring | Open Agent/controller work must be reviewed as development tooling only |
 
 ## Current architecture
@@ -53,22 +55,25 @@ The scalar transforms remain local and conservative. They do not claim general D
 
 ## Official package alignment status
 
-Aligned in documentation:
+Aligned in repository facts:
 
-- Score model is now 50 correctness / 40 performance / 10 robustness.
+- Root `spec.md` has been replaced with the reduced official PTX 9.3 scalar-subset and AEC opcode/binary/ABI specification.
+- Root `scoring.md` has been replaced with the reduced 50 correctness / 40 performance / 10 robustness scoring model.
 - Agent scoring is removed from C1.
 - Tensor/TMUL/low-precision GEMM scope is removed from C1.
 - T5 is FP32 scalar GEMM.
 - Cycle Model will not be provided; participant-side performance model remains useful.
 - Raw `.aecbin` format and PMEM ABI are now defined in official `spec.md`.
+- Public T1-T5 package is mirrored at `official_testcases/20260713/` for local alignment work.
 
 Not yet aligned in implementation:
 
-- New manifest-based public testcase harness.
-- New `.visible .entry`, `.target sm_90`, `.address_size 64` package syntax coverage.
-- Full official PTX subset coverage for `.b32/.b64/.s32`, `ld.global.*`, `mul.lo.u32`, `mad.lo.u32`, `mul.wide.u32`, `add.u64`, `mad.rn.f32`, `fma.rn.f32` and all listed x/y/z special registers where missing.
-- Official PMEM ABI audit against current parameter-load lowering.
-- Public T1-T5 package executable validation.
+- Manifest-aware local compile/run harness.
+- `-O2` compile/report smoke over all mirrored public T1-T5 kernels.
+- Full official PTX subset coverage for `.b32/.b64/.s32`, `or.b32`, `xor.b32`, `shl.b32`, `mul.lo.u32`, `mad.lo.u32`, `mad.rn.f32`, `fma.rn.f32`, negated branch handling and every x/y/z special-register form under the new package.
+- PMEM ABI tests for declaration order, natural alignment and 8-byte block alignment.
+- Address ABI tests for 64-bit PTX pointers lowered to the low 32-bit AEC abstract address rule.
+- Public T1-T5 executable validation.
 - ARM Golden Model self-test integration once organizers release the binary.
 
 ## Performance-model status
@@ -119,11 +124,11 @@ Local completion does not mean official Golden Model or grader approval. Once th
 
 ## Next single main task
 
-Official package alignment before more optional Agent work:
+Official package implementation alignment before more optional tooling:
 
-1. Import or mirror the new public T1-T5 package into a non-invasive fixture location without deleting old regression fixtures.
-2. Add manifest-aware local harness scaffolding.
-3. Extend parser/frontend for the new package syntax and listed PTX subset gaps.
-4. Audit `.aecbin` writer and PMEM parameter lowering against the new `spec.md`.
-5. Run `-O2` compile/report smoke for all public package kernels.
+1. Add a manifest-aware compile-smoke harness over `official_testcases/20260713/*/kernel.ptx`.
+2. Run the harness through `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json` and record exact failures.
+3. Fix parser/lowering gaps in scoring order, starting with public T1/T2 coverage.
+4. Add PMEM ABI and address ABI tests tied directly to the new root `spec.md`.
+5. Integrate the ARM Golden Model as soon as it is released.
 6. Only after T1/T2 public package correctness is restored, resume T3 memory optimization planning.
