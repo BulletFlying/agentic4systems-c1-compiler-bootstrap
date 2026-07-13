@@ -59,8 +59,9 @@ The current pipeline records validation and analysis stages only. It does not cl
 - `docs/performance_targets/track_c_hint_20260713.json` records a local machine-readable transcription of the official human-readable table.
 - Official Platform A/B indicators now recorded include per-SM register file, unified L1/Shared-Memory pool, max Shared Memory, bank organization, L2 cache, HBM memory/bandwidth, host interconnect, GPU interconnect and reference access latencies.
 - Slide-derived AEC indicators remain useful for C1 legality and local report estimates: warp width, CTA limit, predicate register count, AEC memory spaces, fixed AEC Shared Memory and LMEM capacity, and 128-byte memory-service assumptions.
-- Future compilation reports should expose static instruction, 128-byte memory-line, memory-space, register, local-memory and dependency metrics; official Cycle Model metrics must be added only when available.
-- Missing official Cycle Model metrics must be represented as unavailable or `null`; they must not be fabricated.
+- Compilation reports expose an explicit `performance_target` selector for `aec_slide_constraints`, `track_c_hint_platform_a` and `track_c_hint_platform_b`.
+- Compilation reports expose deterministic static model inputs: instruction mix, branch count, GMEM load/store counts, estimated GMEM bytes, estimated 128-byte GMEM line lower bound, memory-space operation counts, and placeholders for register pressure, local-memory pressure, dependency depth, SMEM bytes and arithmetic intensity.
+- Missing official Cycle Model metrics are represented as `null`; they must not be fabricated.
 
 ## Technical-debt register
 
@@ -102,13 +103,13 @@ Local completion does not mean official Golden Model, Cycle Model or grader appr
 
 ## Next single main task
 
-M2.2 scalar optimization preparation and model-facing report foundation:
+M2.2-B scalar optimization readiness review, before implementing any transform:
 
-1. Extend the machine-readable compilation report skeleton so it can select `track_c_hint_platform_a`, `track_c_hint_platform_b` or `aec_slide_constraints` as an explicit performance target.
-2. Expose static metrics needed by `docs/PERFORMANCE_MODEL.md`, including 128-byte line traffic, memory-space traffic, register pressure, local-memory pressure, dependency depth and arithmetic intensity placeholders.
-3. Improve IR contracts where required by the first scalar pass.
+1. Define the first scalar-pass target and its exact correctness contract, likely constant folding or DCE only after IR/def-use needs are explicit.
+2. Improve IR contracts where required by the chosen first pass.
+3. Add pass-level unit, negative and mutation tests before implementation.
 4. Keep architecture guardrails enforced.
 5. Upgrade uniformity to CFG worklist/fixed-point analysis before relying on block reordering.
 6. Remove or tightly quarantine unsafe legacy varying-branch fallback.
-7. Introduce optimization transforms only through pass abstractions with unit, mutation and executable differential tests.
+7. Introduce optimization transforms only through pass abstractions with executable differential tests.
 8. Keep PTX-03/04/05 out of scope until the M2.2 correctness gate passes.
