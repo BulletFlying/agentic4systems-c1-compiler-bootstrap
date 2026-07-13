@@ -63,7 +63,7 @@ The checked-in compiler provides:
 - No C1 official binary container layout is published, so `aec-cc` defaults to Track-B raw binary.
 - Register-pressure handling, spill code, DDG/list scheduling and tensor GEMM lowering are not implemented.
 - There is no public C1 Golden Model or Cycle Model in this repository, so current verification is local semantic simulation plus static encoding and CLI smoke testing.
-- The 2026-07-13 organizer clarification indicates that C performance optimization should use NVIDIA-like target-hardware parameters to build a performance model, but the numeric parameter sheet has not yet been recorded here.
+- The 2026-07-13 organizer clarification indicates that C performance optimization should use NVIDIA-like target-hardware parameters to build a performance model. Slide-derived target indicators are recorded in `docs/PERFORMANCE_MODEL.md`, but the official Cycle Model schema and machine-readable parameter file are not available.
 
 See `docs/STATUS.md` for the detailed debt register and next single main task.
 

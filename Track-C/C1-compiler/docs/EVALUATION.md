@@ -15,6 +15,15 @@ The official C1 score is 100 points:
 
 Correctness gates performance. If a compiled binary fails validation or Golden Model comparison, that case contributes no performance score.
 
+The C1 slide-deck scoring details are:
+
+```text
+correctness = T1*4 + T2*8 + T3*10 + T4*12 + T5*16
+performance = 35 points, main metric AEC Cycle Model total cycles
+robustness = 5 points across 50 mutation tests
+agent = 8 performance points + 2 loop-completeness points
+```
+
 ## Correctness mapping
 
 Official correctness uses 100 hidden tests across five categories.
@@ -29,6 +38,16 @@ Official correctness uses 100 hidden tests across five categories.
 
 Current local tests are not equivalent to official correctness. They are necessary bootstrap evidence only. Official Golden Model, Cycle Model, validator, and final object format remain external blockers unless later added to the repository.
 
+The public C1 benchmark set shown in the slide deck is:
+
+```text
+PTX-01 vector_add
+PTX-02 invariant_poly
+PTX-03 repeated_reuse
+PTX-04 reg_schedule
+PTX-05 gemm_f16
+```
+
 ## Performance mapping
 
 Official performance uses the AEC Cycle Model `total_cycles`. Diagnostic metrics such as `instruction_count`, `spill_count`, `dual_issue_rate`, `memory_transactions`, and `stall_cycles` are useful for debugging but are not themselves the final score.
@@ -42,6 +61,21 @@ Official performance uses the AEC Cycle Model `total_cycles`. Diagnostic metrics
 | T5 | 11 | GEMM tiling, tensor/scalar mapping, precision and boundary handling |
 
 No performance claim is valid unless the same case is correct. A faster wrong binary is a regression.
+
+The slide-deck normalization formula is:
+
+```text
+r_{g,i} = T^{base}_i / T_{g,i}
+p(r) = clip((log r - log 0.5) / (log 2 - log 0.5), 0, 1)
+```
+
+Interpretation:
+
+```text
+<= 0.5x baseline speed -> 0%
+1.0x baseline speed    -> 50%
+>= 2.0x baseline speed -> 100%
+```
 
 ## Robustness mapping
 
@@ -58,6 +92,14 @@ Tests and docs may mention public case names. Compiler logic may not use them to
 ## Agent mapping
 
 Official Agent score is 10 points: 8 for performance improvement and 2 for loop completeness. The Agent must independently run, read a performance report, adjust compilation configuration, recompile, verify results, and generate a final optimization report.
+
+The slide-deck Agent performance metric is:
+
+```text
+GM_agent = (product r_i^agent)^(1/10)
+```
+
+`GM_agent >= 1.25` receives the full Agent performance score. The remaining loop-completeness points require independent execution, report reading, recompilation, verification, and final report generation.
 
 The Agent does not need online LLM inference for correctness. LLM-assisted exploration is optional and outside the reproducible evaluation boundary. The evaluated behavior must be deterministic enough to reproduce and must not claim unimplemented passes.
 

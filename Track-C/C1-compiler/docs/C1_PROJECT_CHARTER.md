@@ -81,6 +81,16 @@ agent/run_agent
 | 泛化与鲁棒性 | 5 | 50 个自动变异测试，禁止依赖公开 case 固定结构 |
 | Agent 自动优化 | 10 | 性能 8 + 闭环完整性 2 |
 
+发布会/PPT 进一步给出的 C1 计分细节：
+
+```text
+正确性 = T1*4 + T2*8 + T3*10 + T4*12 + T5*16
+性能归一化 = p(T_base / T_candidate)，以 AEC Cycle Model total_cycles 为主指标
+Agent = 8 分性能几何均值 + 2 分闭环完整性
+```
+
+2026-07-13 群公告和配套 PPT 还要求 C 赛道性能优化参考类 NVIDIA GPGPU 目标硬件指标建立 Performance Model。具体目标硬件指标、PPA 公式和报告字段方向维护在 `docs/PERFORMANCE_MODEL.md`。
+
 性能分分布：
 
 | 类别 | 性能分 | 公开代表题 |

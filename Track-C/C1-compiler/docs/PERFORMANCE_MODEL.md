@@ -8,7 +8,54 @@ The organizer clarified that Track-C performance optimization is intended to pre
 
 The organizer also suggested building a Performance Model from these parameters, using the model to analyze compute, memory access and data-movement bottlenecks, and then using measurement from realistic workloads to evaluate and correct the model.
 
-No numeric target table is checked into this repository yet. When the official parameter sheet is published or provided, record it here with source date and provenance before using it as a hard constraint.
+The slide-deck screenshots supplied on 2026-07-13 provide the current target-hardware indicators below. Treat them as contest guidance for model construction, not as an official C1 Cycle Model schema.
+
+## Target hardware indicators
+
+The C1 model should stay aligned with the Track-B AEC GPGPU architecture because C1-generated binaries are evaluated against that ISA and model direction.
+
+| Indicator | Slide value | C1 model implication |
+|---|---:|---|
+| Instruction width | 128-bit fixed | Instruction count maps directly to code bytes at 16 bytes per instruction |
+| Register file | 256 x 32-bit registers per thread | CSE, LICM, unroll and tiling choices must account for register pressure |
+| Predicate registers | 8 independent predicates, P0-P7 | Predicate allocation is a finite resource, not an unbounded PTX namespace |
+| Execution granularity | Warp = 32 lanes | Branch legality and memory coalescing should be reasoned at warp granularity |
+| CTA limit | CTA <= 256 threads, 8 warps | Occupancy and shared-memory use should be reported per CTA where possible |
+| Memory spaces | `.gmem`, `.smem`, `.cmem`, `.lmem`, `.pmem` | Reports should separate global, shared, constant, local and parameter traffic |
+| Shared memory | 65536 bytes per CTA, fixed | Shared-memory promotion and GEMM tiling must fit this per-CTA budget |
+| Local memory | 4096 bytes per thread | Spill modeling should report estimated local-memory pressure |
+| Memory service | 128-byte line, 32-cycle latency, 16 outstanding requests | Memory model should estimate cache-line traffic, latency exposure and request-level parallelism |
+
+Toolchain constraints from the same slide deck: Python 3.10+ applies to Tracks A and C, and GCC/G++ 13.3.0 applies to Tracks B and C. The local development environment may use Python 3.13, but submitted code should remain compatible with Python 3.10+ unless the official environment changes.
+
+## Track-B PPA signals for C1 modeling
+
+Track-B scoring is not C1 scoring, but it gives useful architectural signals for a C1 performance model:
+
+```text
+T_i = W_i * f_max / C_i
+```
+
+where `W_i` is effective work, `C_i` is measured Verilator cycles, and `f_max` is the OpenSTA maximum frequency.
+
+The workload units shown in the slide deck are:
+
+| Workload | Effective work `W_i` | Report unit |
+|---|---|---|
+| GEMM M x N x K | `2 * M * N * K` | GOP/s |
+| Copy / transpose | read bytes + written bytes | GB/s |
+| Vector add | element count | Gelement/s |
+
+SRAM macro area constants shown for Track-B are:
+
+| SRAM macro | Area |
+|---|---:|
+| 256 x 32 | 415.24 um^2 |
+| 512 x 32 | 691.20 um^2 |
+| 1024 x 32 | 1311.03 um^2 |
+| 256 x 64 | 747.43 um^2 |
+
+These SRAM constants are hardware-design inputs, not direct C1 scoring terms. They are useful only when explaining shared-memory capacity pressure or future cross-track PPA reasoning.
 
 ## C1 interpretation
 
@@ -38,8 +85,8 @@ Minimum model dimensions:
 |---|---|---|
 | Instruction mix | Estimate scalar, memory and tensor pressure | Guide pass selection and scheduling work |
 | Register pressure | Estimate spill risk and occupancy loss | Bound CSE, LICM, unroll and tiling aggressiveness |
-| Global-memory traffic | Estimate bandwidth bottlenecks | Guide load reuse and memory coalescing work |
-| Shared-memory use | Estimate promotion benefit and bank/conflict risk | Guide PTX-03 and GEMM tiling work |
+| Global-memory traffic | Estimate line transactions and bandwidth bottlenecks | Guide load reuse and memory coalescing work |
+| Shared-memory use | Estimate promotion benefit and per-CTA capacity pressure | Guide PTX-03 and GEMM tiling work |
 | Data movement | Track GMEM/SMEM/register movement cost | Explain bottleneck migration after optimization |
 | Dependency depth | Estimate latency hiding and scheduling opportunity | Guide DDG/list-scheduling work |
 | Tensor tile shape | Estimate arithmetic intensity and boundary overhead | Guide PTX-05 tile search |
@@ -62,9 +109,14 @@ Future compilation reports should expose model inputs and pass effects in machin
     "branch_count": 0,
     "gmem_loads": 0,
     "gmem_stores": 0,
+    "estimated_gmem_bytes": 0,
+    "estimated_gmem_lines_128b": 0,
     "smem_ops": 0,
+    "estimated_smem_bytes_per_cta": null,
     "estimated_register_pressure": null,
-    "estimated_dependency_depth": null
+    "estimated_lmem_bytes_per_thread": null,
+    "estimated_dependency_depth": null,
+    "estimated_arithmetic_intensity": null
   },
   "cycle_model_metrics": {
     "total_cycles": null,
@@ -108,7 +160,7 @@ This document does not introduce a requirement that C1 run on NVIDIA GPUs. It al
 
 ## Open blockers
 
-- Official numeric NVIDIA-like target parameters are not recorded in this repository yet.
+- A machine-readable official target-hardware parameter file is not available; the current constants are recorded from slide screenshots.
 - The official C1 `.aecbin` container layout is still unresolved.
 - The official PMEM ABI is still unresolved.
 - The final T5 tensor profile, Track-B versus C2/B3 or another frozen profile, is still unresolved.

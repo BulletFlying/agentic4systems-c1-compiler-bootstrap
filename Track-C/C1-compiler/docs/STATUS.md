@@ -12,7 +12,7 @@ Local Git remote policy: only `origin` pointing to `BulletFlying/agentic4systems
 
 Official repository remote: not configured
 
-Organizer performance clarification recorded in `docs/PERFORMANCE_MODEL.md`: Track-C performance optimization should build a model from NVIDIA-like target-hardware indicators and use it to reason about compute, memory and data-movement bottlenecks. Numeric parameters are not yet recorded in this repository.
+Organizer performance clarification recorded in `docs/PERFORMANCE_MODEL.md`: Track-C performance optimization should build a model from NVIDIA-like target-hardware indicators and use it to reason about compute, memory and data-movement bottlenecks. Slide-derived target-hardware indicators are now recorded; the official Cycle Model schema is still unavailable.
 
 ## Milestone state
 
@@ -55,9 +55,9 @@ The current pipeline records validation and analysis stages only. It does not cl
 
 ## Performance-model status
 
-- `docs/PERFORMANCE_MODEL.md` records the 2026-07-13 organizer guidance for NVIDIA-like target-hardware indicators.
-- Official numeric target parameters are not recorded in this repository yet.
-- Future compilation reports should expose static instruction, memory, register and dependency metrics, plus official Cycle Model metrics when available.
+- `docs/PERFORMANCE_MODEL.md` records the 2026-07-13 organizer guidance and slide-derived target-hardware indicators.
+- Current recorded indicators include warp width, CTA limit, register file size, predicate register count, memory spaces, SMEM/LMEM capacity and memory-service assumptions.
+- Future compilation reports should expose static instruction, memory-line, memory-space, register, local-memory and dependency metrics, plus official Cycle Model metrics when available.
 - Missing official metrics must be represented as unavailable or `null`; they must not be fabricated.
 
 ## Technical-debt register
@@ -82,7 +82,7 @@ Still unresolved from public materials:
 - Formal PMEM kernel-parameter ABI.
 - Whether C1 T5 uses Track-B scalar ISA, C2/B3 tensor extensions, or another frozen profile.
 - Availability and interface of the official C1 validator, Golden Model, Cycle Model and scoring script.
-- Official numeric NVIDIA-like target-hardware parameter sheet for the temporary C performance model.
+- Machine-readable official NVIDIA-like target-hardware parameter file beyond the supplied slide screenshots.
 - Official Cycle Model report schema and how it should be consumed by `agent/run_agent`.
 
 Recorded organizer guidance:
@@ -90,6 +90,8 @@ Recorded organizer guidance:
 - C performance optimization should stay aligned with the Track-B architecture direction and future A/B/C integration, even though full integration is not required at the current stage.
 - Current-stage optimization may use NVIDIA-like GPGPU performance parameters as target-hardware indicators.
 - Teams are encouraged to build a Performance Model, quantify compute, memory and data-movement bottlenecks, and correct the model with realistic application measurements.
+- C1 performance scoring is correctness-gated; wrong programs do not receive performance score.
+- C1 Agent scoring focuses on closed-loop optimization evidence, not whether a large language model is called.
 
 ## Verification boundary
 
@@ -99,7 +101,7 @@ Local completion does not mean official Golden Model, Cycle Model or grader appr
 
 M2.2 scalar optimization preparation and model-facing report foundation:
 
-1. Add a machine-readable compilation report skeleton that exposes static metrics needed by `docs/PERFORMANCE_MODEL.md`.
+1. Add a machine-readable compilation report skeleton that exposes static metrics needed by `docs/PERFORMANCE_MODEL.md`, including 128-byte line traffic, memory-space traffic, register pressure and local-memory pressure.
 2. Improve IR contracts where required by the first scalar pass.
 3. Keep architecture guardrails enforced.
 4. Upgrade uniformity to CFG worklist/fixed-point analysis before relying on block reordering.

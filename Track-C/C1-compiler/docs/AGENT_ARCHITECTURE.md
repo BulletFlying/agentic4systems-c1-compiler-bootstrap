@@ -8,6 +8,14 @@ The Agent exists to improve generated-code performance through an automated, cor
 
 The Agent is part of the C1 scoring path only when it changes compiler configuration based on measured evidence. Returning a static JSON object is a command stub, not an optimizing Agent.
 
+The slide-deck scoring split is 8 points for Agent-driven performance and 2 points for loop completeness. The performance metric is the geometric mean over ten Agent ratios:
+
+```text
+GM_agent = (product r_i^agent)^(1/10)
+```
+
+`GM_agent >= 1.25` receives the full Agent performance score. This reinforces that the evaluated Agent must run a closed loop; merely calling or not calling an LLM is not the scoring criterion.
+
 ## Required loop
 
 The final Agent loop should be:
