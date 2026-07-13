@@ -31,6 +31,9 @@ def compile_ptx_detailed(
     input_name: str = "<memory>",
     performance_target: str = "aec_slide_constraints",
 ) -> CompilationResult:
+    if performance_target not in PERFORMANCE_TARGETS:
+        raise ValueError(f"unsupported performance target: {performance_target}")
+
     program = parse_ptx(text)
     module = module_from_program(text, program)
     analyses = build_default_analysis_manager(module)
