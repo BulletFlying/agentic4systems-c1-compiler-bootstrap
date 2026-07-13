@@ -114,6 +114,7 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert first == second
     payload = json.loads(first)
     assert payload["optimization"] == "O2"
+    assert payload["performance_target"] == "aec_slide_constraints"
     assert payload["pipeline"] == "O2-analysis-foundation"
     assert [record["name"] for record in payload["passes"]] == [
         "validate-program",
@@ -132,27 +133,41 @@ def test_report_contains_model_facing_static_metrics_without_official_cycle_clai
         text,
         opt_level="3",
         input_name="testcases/PTX-02_invariant_poly.ptx",
+        performance_target="track_c_hint_platform_a",
     ).report.to_dict()
 
     assert payload["schema_version"] == 1
     assert payload["optimization"] == "O3"
+    assert payload["performance_target"] == "track_c_hint_platform_a"
     assert set(payload["static_metrics"]) == {
         "branch_count",
+        "estimated_arithmetic_intensity",
         "estimated_dependency_depth",
+        "estimated_gmem_bytes",
+        "estimated_gmem_lines_128b",
+        "estimated_lmem_bytes_per_thread",
         "estimated_register_pressure",
+        "estimated_smem_bytes_per_cta",
         "gmem_loads",
         "gmem_stores",
         "instruction_count",
         "instruction_mix",
+        "memory_space_ops",
         "smem_ops",
     }
     assert payload["static_metrics"]["instruction_count"] == payload["metrics"]["machine_instruction_count"]
     assert payload["static_metrics"]["branch_count"] == payload["metrics"]["branch_count"]
     assert payload["static_metrics"]["gmem_loads"] == 1
     assert payload["static_metrics"]["gmem_stores"] == 1
+    assert payload["static_metrics"]["estimated_gmem_bytes"] == 8
+    assert payload["static_metrics"]["estimated_gmem_lines_128b"] == 1
+    assert payload["static_metrics"]["memory_space_ops"] == {"gmem": 2, "pmem": 5}
     assert payload["static_metrics"]["instruction_mix"]["BRX"] == 1
+    assert payload["static_metrics"]["estimated_arithmetic_intensity"] is None
     assert payload["static_metrics"]["estimated_dependency_depth"] is None
+    assert payload["static_metrics"]["estimated_lmem_bytes_per_thread"] is None
     assert payload["static_metrics"]["estimated_register_pressure"] is None
+    assert payload["static_metrics"]["estimated_smem_bytes_per_cta"] is None
     assert payload["cycle_model_metrics"] == {
         "dual_issue_rate": None,
         "memory_transactions": None,
@@ -176,6 +191,8 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
             "2",
             "-o",
             str(first_binary),
+            "--performance-target",
+            "track_c_hint_platform_b",
             "--report",
             str(first_report),
         ]
@@ -187,6 +204,8 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
             "2",
             "-o",
             str(second_binary),
+            "--performance-target",
+            "track_c_hint_platform_b",
             "--report",
             str(second_report),
         ]
@@ -199,6 +218,7 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     payload = json.loads(first_report.read_text(encoding="utf-8"))
     assert payload["input"] == input_path.as_posix()
     assert payload["profile"] == TRACK_B_V1.name
+    assert payload["performance_target"] == "track_c_hint_platform_b"
     assert "static_metrics" in payload
     assert "cycle_model_metrics" in payload
 
