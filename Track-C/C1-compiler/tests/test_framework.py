@@ -121,6 +121,7 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert [record["name"] for record in payload["passes"]] == [
         "validate-program",
         "conservative-dead-result-elimination",
+        "basic-block-local-cse",
         "materialize-cfg",
         "record-uniformity",
     ]
@@ -128,7 +129,12 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert dead_result_record["changed"] is True
     assert dead_result_record["details"]["removed_instruction_count"] == 1
     assert dead_result_record["details"]["removed_destinations"] == ["%f15"]
-    assert payload["metrics"]["optimization_transforms_applied"] == 1
+    cse_record = payload["passes"][2]
+    assert cse_record["changed"] is True
+    assert cse_record["details"]["removed_instruction_count"] == 1
+    assert cse_record["details"]["replaced_destination_count"] == 1
+    assert cse_record["details"]["replacements"] == ["%f6 -> %f5"]
+    assert payload["metrics"]["optimization_transforms_applied"] == 2
     assert payload["validation"]["official_golden_model"] == "not_available_not_run"
     assert payload["validation"]["official_cycle_model"] == "not_available_not_run"
     assert first.endswith("\n")
@@ -238,7 +244,7 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     assert payload["input"] == input_path.as_posix()
     assert payload["profile"] == TRACK_B_V1.name
     assert payload["performance_target"] == "track_c_hint_platform_b"
-    assert payload["metrics"]["optimization_transforms_applied"] == 1
+    assert payload["metrics"]["optimization_transforms_applied"] == 2
     assert "static_metrics" in payload
     assert "cycle_model_metrics" in payload
 

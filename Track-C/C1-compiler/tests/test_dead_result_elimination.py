@@ -42,8 +42,8 @@ def test_o2_and_o3_remove_ptx02_never_read_result_but_o0_is_unchanged() -> None:
     optimized_o2 = compile_ptx_detailed(text, opt_level="2")
     optimized_o3 = compile_ptx_detailed(text, opt_level="3")
 
-    assert len(optimized_o2.lowered.instructions) == len(baseline.lowered.instructions) - 1
-    assert len(optimized_o3.lowered.instructions) == len(baseline.lowered.instructions) - 1
+    assert len(optimized_o2.lowered.instructions) == len(baseline.lowered.instructions) - 2
+    assert len(optimized_o3.lowered.instructions) == len(baseline.lowered.instructions) - 2
 
     for optimized in (optimized_o2, optimized_o3):
         record = _pass_record(optimized)
@@ -51,7 +51,7 @@ def test_o2_and_o3_remove_ptx02_never_read_result_but_o0_is_unchanged() -> None:
         assert record.details["removed_instruction_count"] == 1
         assert record.details["removed_destinations"] == ["%f15"]
         assert record.details["transforms_applied"] == 1
-        assert optimized.report.metrics["optimization_transforms_applied"] == 1
+        assert optimized.report.metrics["optimization_transforms_applied"] == 2
         assert optimized.report.metrics["machine_instruction_count"] == len(
             optimized.lowered.instructions
         )
@@ -60,7 +60,7 @@ def test_o2_and_o3_remove_ptx02_never_read_result_but_o0_is_unchanged() -> None:
     assert baseline.report.metrics["optimization_transforms_applied"] == 0
 
 
-def test_pass_keeps_duplicate_adds_for_future_local_cse() -> None:
+def test_dre_pass_keeps_duplicate_adds_for_local_cse() -> None:
     optimized_program, result = _run_pass(PTX02.read_text(encoding="utf-8"))
     instructions = _instructions(optimized_program)
 
@@ -86,7 +86,7 @@ def test_renamed_kernel_register_and_labels_still_optimize() -> None:
     optimized = compile_ptx_detailed(renamed, opt_level="2")
     record = _pass_record(optimized)
 
-    assert len(optimized.lowered.instructions) == len(baseline.lowered.instructions) - 1
+    assert len(optimized.lowered.instructions) == len(baseline.lowered.instructions) - 2
     assert record.details["removed_destinations"] == ["%f14"]
     assert record.details["removed_instruction_count"] == 1
 

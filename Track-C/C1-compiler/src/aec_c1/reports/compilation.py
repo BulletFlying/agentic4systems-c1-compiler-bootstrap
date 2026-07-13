@@ -128,11 +128,20 @@ def build_metrics(
 def _report_notes(pass_records: tuple[PassRecord, ...]) -> list[str]:
     pass_names = {record.name for record in pass_records}
     notes: list[str] = []
+    scalar_notes: list[str] = []
     if "conservative-dead-result-elimination" in pass_names:
+        scalar_notes.append(
+            "O2/O3 enable conservative elimination of never-read unpredicated pure results."
+        )
+    if "basic-block-local-cse" in pass_names:
+        scalar_notes.append(
+            "O2/O3 enable basic-block-local CSE for conservative unpredicated pure expressions."
+        )
+    if scalar_notes:
+        notes.extend(scalar_notes)
         notes.extend(
             [
-                "O2/O3 enable conservative elimination of never-read unpredicated pure results.",
-                "No general DCE, CSE, LICM, scheduling, register-allocation or GEMM optimization is claimed.",
+                "No general DCE, global CSE, LICM, scheduling, register-allocation or GEMM optimization is claimed.",
             ]
         )
     else:
