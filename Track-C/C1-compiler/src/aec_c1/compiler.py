@@ -40,16 +40,16 @@ def compile_ptx_detailed(
     pipeline = build_pipeline(opt_level)
     pass_records = pipeline.run(module, analyses)
 
-    # Transitional M2.2-A boundary: the frozen lowering path is invoked only
-    # after the explicit framework has validated and materialized the source IR.
-    lowered = Lowerer(program, profile=profile).lower()
+    # The pass-updated IR program is authoritative for lowering. O0 leaves it
+    # unchanged; O2/O3 may apply explicitly recorded conservative transforms.
+    lowered = Lowerer(module.function.program, profile=profile).lower()
     report = CompilationReport(
         input=input_name,
         optimization=opt_level,
         profile=profile.name,
         pipeline=pipeline.name,
         passes=pass_records,
-        metrics=build_metrics(module, lowered),
+        metrics=build_metrics(module, lowered, pass_records),
         performance_target=performance_target,
     )
     return CompilationResult(lowered=lowered, report=report)
