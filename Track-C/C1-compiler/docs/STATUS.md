@@ -19,7 +19,7 @@ Official repository remote: not configured
 | M0 ISA/CLI/encoder baseline | Locally complete | Track-B raw encoder, decoder, objdump and smoke checks exist |
 | M1 PTX-01 correctness loop | Locally complete | Partial-warp and randomized differential tests exist |
 | M2.1 PTX-02 CFG/uniform-loop correctness | Locally complete | CFG, dominators, uniformity analysis and executable tests exist |
-| M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports and foundation pipelines exist |
+| M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary golden fixtures exist |
 | M2.2 scalar optimization | Not started | No real constant propagation, CSE, DCE, LICM or block merge optimization transforms |
 | M3 PTX-03 memory optimization | Not started | No memory optimization pass |
 | M4 PTX-04 regalloc/scheduling | Not started | Bootstrap allocation only |
@@ -44,6 +44,12 @@ Implemented framework modules:
 `-O0`, `-O2` and `-O3` now select explicit non-optimizing foundation pipelines. Scalar optimization transforms are still not implemented.
 
 The current pipeline records validation and analysis stages only. It does not claim DCE, CSE, LICM, constant propagation, scheduling or GEMM optimization support.
+
+## Regression and guardrail status
+
+- PTX-01 and PTX-02 `-O0` Track-B raw binaries are guarded by fixed SHA256 golden fixtures.
+- Architecture guardrails cover the compiler facade, legacy lowering, future lowering/backend directories and pass implementations.
+- Guardrails use AST-level semantic dispatch checks rather than broad string matching.
 
 ## Technical-debt register
 
