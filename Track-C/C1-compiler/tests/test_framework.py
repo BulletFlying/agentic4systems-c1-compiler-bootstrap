@@ -117,13 +117,18 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     payload = json.loads(first)
     assert payload["optimization"] == "O2"
     assert payload["performance_target"] == "aec_slide_constraints"
-    assert payload["pipeline"] == "O2-analysis-foundation"
+    assert payload["pipeline"] == "O2-conservative-scalar"
     assert [record["name"] for record in payload["passes"]] == [
         "validate-program",
+        "conservative-dead-result-elimination",
         "materialize-cfg",
         "record-uniformity",
     ]
-    assert payload["metrics"]["optimization_transforms_applied"] == 0
+    dead_result_record = payload["passes"][1]
+    assert dead_result_record["changed"] is True
+    assert dead_result_record["details"]["removed_instruction_count"] == 1
+    assert dead_result_record["details"]["removed_destinations"] == ["%f15"]
+    assert payload["metrics"]["optimization_transforms_applied"] == 1
     assert payload["validation"]["official_golden_model"] == "not_available_not_run"
     assert payload["validation"]["official_cycle_model"] == "not_available_not_run"
     assert first.endswith("\n")
@@ -233,6 +238,7 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     assert payload["input"] == input_path.as_posix()
     assert payload["profile"] == TRACK_B_V1.name
     assert payload["performance_target"] == "track_c_hint_platform_b"
+    assert payload["metrics"]["optimization_transforms_applied"] == 1
     assert "static_metrics" in payload
     assert "cycle_model_metrics" in payload
 
