@@ -15,6 +15,7 @@ from .foundation import (
 )
 from .manager import PassManager
 from .register_allocation import LinearScanRegisterAllocationPass
+from .gemm import LoopUnrollingPass
 from .memory import LoadHoistingPass
 from .register_allocation import LinearScanRegisterAllocationPass
 from .scalar import (
@@ -78,6 +79,7 @@ def build_pipeline(opt_level: str) -> PassManager:
                 LoopInvariantCodeMotionPass(),
                 LoadHoistingPass(),
                 LinearScanRegisterAllocationPass(),
+                LoopUnrollingPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
             ],
