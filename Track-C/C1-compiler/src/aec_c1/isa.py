@@ -195,8 +195,9 @@ def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -
     opcode_name = inst.opcode.upper()
     if opcode_name not in profile.opcodes:
         raise EncodeError(f"unsupported opcode for {profile.name}: {inst.opcode}")
-    if inst.dtype not in profile.types:
-        raise EncodeError(f"unsupported type for {profile.name}: {inst.dtype}")
+    dtype = _instruction_encoding_type(opcode_name, inst.dtype)
+    if dtype not in profile.types:
+        raise EncodeError(f"unsupported type for {profile.name}: {dtype}")
 
     opcode = profile.opcodes[opcode_name]
     pred_ctrl = 0
@@ -204,10 +205,10 @@ def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -
     if opcode_name.startswith("CVT") and inst.cvt_src_type:
         if inst.cvt_src_type not in profile.types:
             raise EncodeError(f"unsupported conversion source type: {inst.cvt_src_type}")
-        pred_ctrl |= (profile.types[inst.dtype] & 0xF) << TYPE_SHIFT
+        pred_ctrl |= (profile.types[dtype] & 0xF) << TYPE_SHIFT
         pred_ctrl |= (profile.types[inst.cvt_src_type] & 0xF) << 10
     else:
-        pred_ctrl |= (profile.types[inst.dtype] & 0xF) << TYPE_SHIFT
+        pred_ctrl |= (profile.types[dtype] & 0xF) << TYPE_SHIFT
 
     if opcode_name == "BRX":
         if inst.predicate is None:
@@ -246,6 +247,15 @@ def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -
     word2 = ((inst.dest & 0xFFFF) << 16) | (inst.src1 & 0xFFFF)
     word3 = ((opcode & 0xFFFF) << 16) | (pred_ctrl & 0xFFFF)
     return (word0, word1, word2, word3)
+
+
+def _instruction_encoding_type(opcode_name: str, dtype: str) -> str:
+    # 2026-07-14 C1 erratum: PTX input remains `shl.b32`, but the legal
+    # AEC output encoding is `SHL.u32`. This changes only the encoded type
+    # field and does not change the bit-level shift result.
+    if opcode_name == "SHL" and dtype == "b32":
+        return "u32"
+    return dtype
 
 
 def _uses_immediate(opcode_name: str) -> bool:

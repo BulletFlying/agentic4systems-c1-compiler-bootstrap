@@ -1,6 +1,6 @@
 # C1 Evaluation Mapping
 
-This document maps repository work to the active reduced official C1 scoring package observed on 2026-07-13. Local C1 package files are LF-normalized text-content-equivalent to official `main` (dce818b, 2026-07-14).
+This document maps repository work to the active reduced official C1 scoring package observed on 2026-07-13. Local C1 package files are LF-normalized text-content-equivalent to the reduced official package baseline. Later organizer clarifications are recorded in `docs/ORGANIZER_CLARIFICATIONS_20260714.md`.
 
 ## Official score model
 
@@ -22,7 +22,7 @@ compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
 
 `-O2` is therefore the scoring-critical pipeline. `-O0` may remain as a local regression baseline, but it is not the official scoring invocation.
 
-Organizer clarification on 2026-07-13 adds that the compiler timeout remains 180 seconds, `compiler/aec-cc` may be a script/Python entry point, and the evaluation environment has `python3`.
+Organizer clarification adds that the compiler timeout remains 180 seconds, `compiler/aec-cc` may be a script/Python entry point, and the evaluation environment has `python3`.
 
 ## Correctness mapping
 
@@ -30,13 +30,24 @@ Correctness is evaluated on 100 hidden tests, 20 per family:
 
 | Category | Hidden tests | Public package family | Required capabilities |
 |---|---:|---|---|
-| T1 basic lowering | 20 | `T1_basic_lowering` | PTX 9.3 restricted scalar parsing, params, special registers, arithmetic, global load/store, branch, `ret -> HALT` |
-| T2 scalar optimization | 20 | `T2_scalar_optimization` | constants, dead-code deletion, CSE, LICM, basic-block merge/simplification |
+| T1 basic lowering | 20 | `T1_basic_lowering` | PTX 9.3 restricted scalar parsing, params, special registers, arithmetic, `shl.b32 -> SHL.u32`, global load/store, branch, `ret -> HALT` |
+| T2 scalar optimization | 20 | `T2_scalar_optimization` | constants, dead-code deletion, CSE, LICM, basic-block merge/simplification without divergent-BRX assumptions |
 | T3 memory access optimization | 20 | `T3_memory_reuse` | global memory access, repeated loads, load hoisting, simple reuse, address-computation optimization |
 | T4 register allocation and scheduling | 20 | `T4_register_scheduling` | GPR/predicate allocation, live-range management, register pressure, load/compute interleaving, dependency scheduling |
 | T5 FP32 scalar GEMM | 20 | `T5_scalar_gemm` | FP32 scalar GEMM, 2D indexing, K-loop lowering, address computation, scalar multiply-add scheduling |
 
 Each testcase is described by `kernel.ptx` plus `manifest.json`. The manifest specifies kernel name, grid/block dimensions, parameters, buffers and output checking. Repository tests should therefore move from single-file assumptions toward manifest-aware execution scaffolding.
+
+Branch legality under the 2026-07-14 clarification:
+
+```text
+BRX is a warp-level conditional branch.
+All currently active lanes must agree on the branch condition.
+Official hidden tests guarantee this on legal execution paths.
+Warp-internal divergent branch and reconvergence are not required.
+```
+
+A CModel `non-uniform branch` result is therefore a valid failure for divergent inputs; it is not a missing feature that the C1 compiler must repair through reconvergence.
 
 ## Performance mapping
 
@@ -57,6 +68,8 @@ The lower participant metric is better. Category performance uses geometric-mean
 | T5 | 12 | FP32 scalar GEMM address/loop/multiply-add optimization |
 
 The public `Track-C/C1-compiler/hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement. Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulation. The released `aec-precise` docs expose stdout JSON `steps` for this purpose.
+
+C3 H200/CuPy/NVML timing information is C3-specific and must not be used to add CUDA dependencies to the C1 compiler path.
 
 ## Diagnostic report fields
 
@@ -104,13 +117,14 @@ Tests and docs may mention public cases. Production compiler logic may not use t
 
 ## Removed or downgraded old evaluation assumptions
 
-These are no longer active C1 scoring requirements under the reduced package:
+These are no longer active C1 scoring requirements under the reduced package and later clarifications:
 
 - Agent performance score and loop-completeness score.
 - AEC Cycle Model availability for participants.
 - TMUL, Tensor Load/Store, tensor registers, tensor tiling and low-precision GEMM.
 - FP4, FP8, BF16, FP16, INT4, INT8 or INT32 GEMM hidden precision matrix.
 - Header/Data/Relocation/Symbol object container for `.aecbin`.
+- Warp-internal divergent branch and reconvergence support.
 
 Agent work may still be useful as optional local automation, but it is not score-aligned unless it improves the normal `-O2` compiler pipeline and does not become a separate required entry point.
 
@@ -118,11 +132,11 @@ Agent work may still be useful as optional local automation, but it is not score
 
 Tier 0: static evidence. Examples: `compileall`, import graph checks, architecture guardrails, line-count checks.
 
-Tier 1: unit evidence. Examples: parser behavior, encoder fields, analysis cache, pass manager ordering, report determinism.
+Tier 1: unit evidence. Examples: parser behavior, encoder fields such as `shl.b32 -> SHL.u32`, analysis cache, pass manager ordering, report determinism.
 
 Tier 2: executable local evidence. Examples: local simulator differential tests, O0/O2 binary regression, public manifest harness.
 
-Tier 3: official CModel evidence. The released `aec-cmodel/` package contains `aec-precise-linux-x86_64`, `aec-precise-macos-arm64`, `USAGE.md` and `PUBLIC_AEC_PRECISE_COMMANDS.md`. Record exact command, binary path and result when used.
+Tier 3: official CModel evidence. The released `aec-cmodel/` package contains `aec-precise-linux-x86_64`, `aec-precise-macos-arm64`, `USAGE.md` and `PUBLIC_AEC_PRECISE_COMMANDS.md`. Record exact command, binary path and result when used. Divergent-branch negative tests should record `non-uniform branch` as expected when active lanes disagree.
 
 Tier 4: performance-model evidence. Examples: static report comparison, baseline-vs-candidate comparison, auxiliary real-GPU profiling clearly labeled as non-official.
 
@@ -140,3 +154,4 @@ A change is score-aligned only if it answers:
 6. Does it preserve architecture guardrails?
 7. Does it avoid public-case semantic dispatch?
 8. Was official `aec-precise` unavailable, not run, failed, or passed?
+9. Does it respect the 2026-07-14 `shl.b32 -> SHL.u32` and no divergent-BRX requirements?

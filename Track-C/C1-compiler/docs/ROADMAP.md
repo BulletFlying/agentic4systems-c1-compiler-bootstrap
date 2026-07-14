@@ -6,9 +6,11 @@ This roadmap converts the active reduced C1 package into an ordered engineering 
 
 The new official package is simpler than the previous working assumptions, but it is still correctness-gated and hidden-test oriented. The roadmap prioritizes official syntax/ABI alignment, generalized scalar compiler analyses, and `-O2` performance improvements. A public-case filename, fixed register, fixed label, fixed loop count or fixed matrix size is never a valid implementation shortcut.
 
+The 2026-07-14 clarifications add two active route constraints: PTX `shl.b32` must encode as AEC `SHL.u32`, and C1 does not require warp-internal divergent branch or reconvergence. Treat divergent branch programs as negative/unsupported cases, not as a feature backlog.
+
 ## Phase 0: Official package realignment
 
-Goal: update project assumptions to the new official `spec.md`, `scoring.md` and manifest-based public tests.
+Goal: update project assumptions to the new official `spec.md`, `scoring.md`, `hint.md`, `aec-cmodel/` and manifest-based public tests.
 
 Required work:
 
@@ -16,10 +18,12 @@ Required work:
 - Accept `.visible .entry`, `.target sm_90` and `.address_size 64`.
 - Treat `.aecbin` as raw AEC 128-bit instruction stream.
 - Implement official PMEM parameter ABI and 32-bit abstract global address rule.
+- Apply the 2026-07-14 `shl.b32 -> SHL.u32` output-encoding erratum.
+- Treat BRX as a uniform active-lane branch; do not implement reconvergence for C1.
 - Remove scoring assumptions for C1 Agent, Cycle Model, tensor ISA and low-precision GEMM.
 - Make `-O2` the scoring-critical pipeline.
 
-Status: documentation realignment in progress. Compiler/test harness still needs concrete package-alignment work.
+Status: repository/package alignment is complete; remaining work is official `aec-precise` execution evidence and deeper optimization correctness.
 
 ## Phase 1: T1 basic lowering
 
@@ -32,11 +36,12 @@ Required compiler functionality:
 - `ld.param.*` through official `.pmem` offsets.
 - special registers including x/y/z dimensions and `%laneid`.
 - integer, bitwise, shift and FP32 scalar ops.
-- `ld.global.*`, `st.global.*`, predicates, branches and `ret -> HALT`.
+- `shl.b32` source accepted and encoded as `SHL.u32`; `and/or/xor.b32` remain `.b32`.
+- `ld.global.*`, `st.global.*`, predicates, uniform/negated-uniform branches and `ret -> HALT`.
 
-Required evidence: manifest-aware public T1 harness, local simulator and official `aec-precise` differential where runnable, mutation coverage for parameter/grid/block/register changes.
+Required evidence: manifest-aware public T1 harness, local simulator differential, `aec-precise` run when host binary is runnable, mutation coverage for parameter/grid/block/register changes, and explicit divergent-branch negative coverage.
 
-Status: T1-T5 public manifest package compiles and executes correctly via local simulator (`pytest -m slow`). O2 pipeline: DRE → BB-local CSE → local CF → Global DCE. Stale PTX-01..PTX-05 kept as regression fixtures only.
+Status: official public package lowering exists and T1-T5 execute correctly via local simulator (`pytest -m slow`). Official `aec-precise` self-test integration remains pending.
 
 ## Phase 2: T2 scalar optimization
 
@@ -48,7 +53,7 @@ Subphase M2.2-A: framework foundation: IR boundary, analysis manager, pass manag
 
 Subphase M2.2-B: scalar optimization passes: conservative DRE, local CSE, local constant folding, and worklist Global DCE on the scoring `-O2` path. Broader constant propagation, LICM and block simplification remain experimental until tests justify them.
 
-Required evidence: pass-level unit tests, negative tests, mutation tests and executable differential tests; report metrics must show real pass effects.
+Required evidence: pass-level unit tests, negative tests, mutation tests and executable differential tests; report metrics must show real pass effects. Branch-related passes must assume only uniform legal `BRX` and must not rely on divergent reconvergence semantics.
 
 Status: M2.1 and M2.2-A are locally established. Conservative DRE, basic-block-local CSE, local constant folding and conservative worklist Global DCE exist on `-O2`. Global constant propagation, block simplification, LICM and repeated-load reuse are O3-only experimental passes with known limitations. Global CSE, scheduler, register allocation and GEMM-specific optimization are not implemented.
 
@@ -66,7 +71,7 @@ Required functionality:
 
 Required evidence: public `T3_memory_reuse` harness, randomized memory-access variants, negative alias/control tests and no unsafe hoisting across stores.
 
-Status: not started.
+Status: experimental repeated-load reuse exists only on O3 and has known boundary gaps; do not treat it as scoring-ready.
 
 ## Phase 4: T4 register allocation and scheduling
 
@@ -84,7 +89,7 @@ Required functionality:
 
 Required evidence: conflict checks, live-range mutation tests, pressure tests, memory-order preservation and scheduled-output correctness.
 
-Status: not started beyond bootstrap allocation.
+Status: not started beyond bootstrap allocation and liveness scaffolding.
 
 ## Phase 5: T5 FP32 scalar GEMM
 
@@ -101,7 +106,7 @@ Required functionality:
 
 Required evidence: public `T5_scalar_gemm` harness, multiple matrix sizes, edge/boundary variants, no out-of-bounds accesses and no fixed-size pattern dispatch.
 
-Status: not started.
+Status: public T5 compiles and passes local simulator; no GEMM-specific optimization is implemented.
 
 ## Phase 6: Optional deterministic optimization tooling and final packaging
 
@@ -116,7 +121,7 @@ Allowed work:
 
 This phase is optional for C1 scoring. It should not displace T1-T5 compiler implementation work.
 
-Status: an Agent-loop PR exists, but after the official scope reduction it should be reviewed as optional development tooling rather than a required scoring milestone.
+Status: an Agent-loop PR was closed after official scope reduction; future tooling must directly improve or validate the normal `-O2` compiler path.
 
 ## Merge policy for roadmap progress
 
