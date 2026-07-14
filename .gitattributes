@@ -4,3 +4,13 @@ Track-C/C1-compiler/hint.md text eol=lf
 Track-C/C1-compiler/testcases/** text eol=lf
 Track-C/C1-compiler/aec-cmodel/*.md text eol=lf
 Track-C/C1-compiler/aec-cmodel/bin/* binary
+
+# Linux evaluation env — entry point + source must use LF
+compiler/aec-cc text eol=lf
+src/**/*.py text eol=lf
+tests/**/*.py text eol=lf
+testcases/**/*.ptx text eol=lf
+testcases/**/*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.ini text eol=lf
