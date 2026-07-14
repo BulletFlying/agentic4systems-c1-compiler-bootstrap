@@ -190,5 +190,32 @@ def _write_u32(memory: bytearray, offset: int, value: int) -> None:
     memory[offset : offset + 4] = (value & 0xFFFFFFFF).to_bytes(4, "little")
 
 
+def test_shl_b32_encodes_as_u32_per_organizer_errata() -> None:
+    """shl.b32 PTX input must produce SHL.u32 AEC output per 2026-07-14 errata."""
+    inst = AECInstruction("SHL", dtype="u32", dest=5, src1=1, src2=2)
+    words = encode_instruction(inst)
+    decoded = decode_words_to_instruction(words)
+    assert decoded.opcode == "SHL"
+    assert decoded.dtype == "u32", f"expected u32, got {decoded.dtype}"
+
+
+def test_shl_b32_ptx_lowers_to_shl_u32_aec() -> None:
+    """shl.b32 in PTX source must lower to SHL.u32 in AEC, not SHL.b32."""
+    ptx = (
+        ".version 9.3\n.target sm_90\n.address_size 64\n"
+        ".visible .entry shl_test(.param .u64 param_a)\n{\n"
+        ".reg .u32 %r<4>;\n.reg .u64 %rd<4>;\n"
+        "ld.param.u64 %rd1, [param_a];\n"
+        "ld.global.u32 %r1, [%rd1];\n"
+        "shl.b32 %r2, %r1, 2;\n"
+        "st.global.u32 [%rd1], %r2;\n"
+        "ret;\n}\n"
+    )
+    lowered = compile_ptx(ptx)
+    shl_insts = [i for i in lowered.instructions if i.opcode == "SHL"]
+    assert len(shl_insts) == 1, f"expected 1 SHL, got {len(shl_insts)}"
+    assert shl_insts[0].dtype == "u32", f"expected SHL.u32, got SHL.{shl_insts[0].dtype}"
+
+
 def _write_u64(memory: bytearray, offset: int, value: int) -> None:
     memory[offset : offset + 8] = (value & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")

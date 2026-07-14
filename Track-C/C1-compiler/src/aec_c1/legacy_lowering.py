@@ -398,6 +398,9 @@ class Lowerer:
             "shr": "SHR", "fma": "FMA",
         }[base]
         aec_type = PTX_TO_AEC_TYPE.get(ptx_type, ptx_type)
+        # Organizer errata 2026-07-14: shl.b32 must encode as SHL.u32
+        if base == "shl":
+            aec_type = "u32"
         if base in {"mad", "fma"}:
             self._emit(
                 AECInstruction(

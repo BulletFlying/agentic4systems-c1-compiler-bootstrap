@@ -34,7 +34,7 @@ Organizer errata recorded on 2026-07-14:
 | M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary fixtures exist |
 | M2.2 scalar optimization | Active (O2) | O2 enables conservative DRE, BB-local CSE, local constant folding, repeated global load reuse, and worklist-based Global DCE. T2: 37→35 AEC instructions (-5.4%). Manifest e2e verified via local simulator. Global CP, LICM, block simplification remain O3-only. |
 | M3/T3 memory access optimization | Active (O2) | RepeatedGlobalLoadReusePass promoted to O2 with 9 dedicated tests (8 negative + 1 positive). Conservative alias model: any store/label/branch/predicated instruction clears cache. T3 eliminates 1 redundant global load (runtime optimization). No load hoisting or alias analysis yet. |
-| M4/T4 register allocation and scheduling | Not started | T4 passes under bootstrap (next-register) allocator. Liveness analysis module scaffolded but not integrated into lowering. No linear-scan RA or scheduler. |
+| M4/T4 register allocation and scheduling | Active (O2) | Linear-scan RA allocates GPRs and predicates from liveness intervals. 64-bit pair constraints handled. T4: 27 virtual→38 max phys, bootstrap would use ~60. No spill support or scheduler yet. |
 | M5/T5 FP32 scalar GEMM | Not started | T5 passes local simulator (within FP32 tolerance, max error ~2.3e-05). No GEMM-specific loop scheduling, load/compute interleaving, or register-pressure optimization. |
 | Optional controller/tooling | Optional, not official scoring | Not an official scoring category |
 

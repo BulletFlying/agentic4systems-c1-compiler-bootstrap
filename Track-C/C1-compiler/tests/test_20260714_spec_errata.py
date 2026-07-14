@@ -30,8 +30,8 @@ def test_shl_b32_encodes_as_shl_u32_per_20260714_erratum() -> None:
     lowered = compile_ptx(ptx)
     shl = next(inst for inst in lowered.instructions if inst.opcode == "SHL")
 
-    # The PTX source type remains .b32, but the legal AEC encoding is SHL.u32.
-    assert shl.dtype == "b32"
+    # Both PTX source and AEC encoding must be u32 per organizer errata.
+    assert shl.dtype == "u32"
     decoded = decode_words_to_instruction(encode_instruction(shl))
     assert decoded.opcode == "SHL"
     assert decoded.dtype == "u32"
