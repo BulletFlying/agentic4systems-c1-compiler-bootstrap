@@ -22,6 +22,8 @@ C1 is still a CPU-executed compiler that emits AEC scalar machine code. The `Tra
 
 Auxiliary real-GPU profiling may be used outside the compiler to calibrate intuition, but such measurements are not official `aec-precise` CModel results and must be labeled as auxiliary.
 
+C3 Q&A now includes an H200/CuPy/NVML environment and ranking rules. Those details are C3-only and must not be imported into the C1 performance model or compiler dependencies.
+
 ## Model scope under the reduced package
 
 The first useful C1 model should stay simple, serializable and conservative:
@@ -94,4 +96,4 @@ T5 FP32 scalar GEMM: model scalar K-loop cost, global memory traffic, multiply-a
 
 ## Non-goals
 
-This document does not authorize public testcase-name dispatch, matrix-size dispatch, fixed-register hacks, CUDA runtime dependency, Cycle Model fabrication, Tensor ISA work or low-precision GEMM work for C1.
+This document does not authorize public testcase-name dispatch, matrix-size dispatch, fixed-register hacks, CUDA runtime dependency, Cycle Model fabrication, Tensor ISA work, low-precision GEMM work, C2 runtime work or C3 H200/CuPy/NVML work for C1.
