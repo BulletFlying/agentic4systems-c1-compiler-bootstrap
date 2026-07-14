@@ -83,6 +83,8 @@ class CompilationReport:
                 spec_passes["licm"] = True
             elif name == "repeated-global-load-reuse":
                 spec_passes["load_reuse"] = True
+            elif name == "load-hoisting":
+                spec_passes["load_hoisting"] = True
             elif name == "block-simplification":
                 spec_passes["block_merge"] = True
 

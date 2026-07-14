@@ -15,6 +15,8 @@ from .foundation import (
 )
 from .manager import PassManager
 from .register_allocation import LinearScanRegisterAllocationPass
+from .memory import LoadHoistingPass
+from .register_allocation import LinearScanRegisterAllocationPass
 from .scalar import (
     BasicBlockLocalCSEPass,
     BlockSimplificationPass,
@@ -74,6 +76,7 @@ def build_pipeline(opt_level: str) -> PassManager:
                 RecordLoopAnalysisPass(),
                 BlockSimplificationPass(),
                 LoopInvariantCodeMotionPass(),
+                LoadHoistingPass(),
                 LinearScanRegisterAllocationPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
