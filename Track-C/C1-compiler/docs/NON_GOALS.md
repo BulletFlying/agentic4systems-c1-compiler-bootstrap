@@ -10,7 +10,9 @@ C1 is not a CUDA compiler. The input is PTX-style IR in the contest shape, not a
 
 C1 is not a GPU runtime. Do not build kernel launch infrastructure, memory allocators, device synchronization APIs, or host runtime behavior unless the official C1 interface requires it.
 
-C1 is not C2 or C3. Keep historical C2/B3 tensor encoding facts isolated if they remain in source for reference. Do not import C2 runtime assumptions, C2 tensor ISA work, or C3 ONNX/compiler-stack assumptions into the default C1 path.
+C1 is not C2 or C3. Keep historical C2/B3 tensor encoding facts isolated if they remain in source for reference. Do not import C2 runtime assumptions, C2 tensor ISA work, C2 `libaec_device.so`, C3 ONNX/compiler-stack assumptions, C3 H200/CuPy/NVML measurement rules, or C3 custom CUDA kernel assumptions into the default C1 path.
+
+C1 is not a warp-divergent branch/reconvergence project. The 2026-07-14 clarification says hidden legal paths have uniform BRX conditions over active lanes. Divergent branch inputs are negative cases, not required compiler functionality.
 
 C1 is not a public-testcase answer generator. Do not select behavior from filenames, public test IDs, source hashes, fixed labels, fixed register names, or fixed instruction positions.
 
@@ -27,6 +29,8 @@ Do not add new public-case support by extending `legacy_lowering.py` unless the 
 Do not add Header/Data/Relocation/Symbol sections to `.aecbin` unless the official C1 `spec.md` changes again. The current official format is a raw AEC 128-bit instruction stream.
 
 Do not claim official score improvement from local tests. Local differential tests show repository health; official readiness requires official-model evidence when available.
+
+Do not treat C3 H200/CuPy environment details or C2 runtime library updates as C1 dependencies. Record them only as cross-track context.
 
 ## Acceptable temporary compromises
 
