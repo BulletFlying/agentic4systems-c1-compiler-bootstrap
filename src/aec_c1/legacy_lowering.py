@@ -15,7 +15,7 @@ import sys
 
 from .analysis import Uniformity, UniformityFacts, analyze_uniformity
 from .analysis.cfg import CFG, CFGError, build_cfg
-from .isa import AECInstruction, PROFILES, TRACK_B_V1, ISAProfile, instructions_to_bytes
+from .isa import AECInstruction, C1_DEFAULT, PROFILES, TRACK_B_V1, ISAProfile, instructions_to_bytes
 from .ptx import PTXInstruction, PTXProgram, parse_ptx
 
 
@@ -134,7 +134,7 @@ class RegisterAllocator:
 
 
 class Lowerer:
-    def __init__(self, program: PTXProgram, profile: ISAProfile = TRACK_B_V1,
+    def __init__(self, program: PTXProgram, profile: ISAProfile = C1_DEFAULT,
                  register_mapping: dict[str, int] | None = None) -> None:
         self.program = program
         self.profile = profile
@@ -496,7 +496,7 @@ def layout_parameters(program: PTXProgram) -> dict[str, int]:
     return offsets
 
 
-def compile_ptx(text: str, profile: ISAProfile = TRACK_B_V1) -> LoweredProgram:
+def compile_ptx(text: str, profile: ISAProfile = C1_DEFAULT) -> LoweredProgram:
     program = parse_ptx(text)
     return Lowerer(program, profile=profile).lower()
 
@@ -629,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("input", type=Path)
     parser.add_argument("-o", "--output", required=True, type=Path)
     parser.add_argument("-O", "--opt-level", default="0", choices=["0", "2", "3"])
-    parser.add_argument("--profile", choices=sorted(PROFILES), default=TRACK_B_V1.name)
+    parser.add_argument("--profile", choices=sorted(PROFILES), default=C1_DEFAULT.name)
     args = parser.parse_args(argv)
 
     try:

@@ -111,7 +111,7 @@ class CompilationReport:
                 "stores": metrics.get("spill_stores", 0),
             },
             "passes": _sort_mapping(spec_passes),
-            "warnings": _report_notes(self.passes, self.scheduler_warning),
+            "warnings": _report_notes(self.passes, self.scheduler_warning, opt_level=self.optimization),
             # extended diagnostic fields
             "schema_version": 1,
             "profile": self.profile,
@@ -126,7 +126,7 @@ class CompilationReport:
                 "official_golden_model": "available_not_integrated_not_run",
                 "official_cycle_model": "not_available_not_run",
             },
-            "notes": _report_notes(self.passes),
+            "notes": _report_notes(self.passes, opt_level=self.optimization),
         }
 
     def to_json(self) -> str:
@@ -195,7 +195,7 @@ def build_metrics(
     }
 
 
-def _report_notes(pass_records: tuple[PassRecord, ...], scheduler_warning: str | None = None) -> list[str]:
+def _report_notes(pass_records: tuple[PassRecord, ...], scheduler_warning: str | None = None, *, opt_level: str = "0") -> list[str]:
     pass_names = {record.name for record in pass_records}
     notes: list[str] = []
     scalar_notes: list[str] = []
@@ -258,9 +258,14 @@ def _report_notes(pass_records: tuple[PassRecord, ...], scheduler_warning: str |
             "Allocates GPRs with merged live-interval analysis. "
             "Predicate allocation is handled by the Lowerer (not RA)."
         )
-    if "list-scheduler" in pass_names:
+
+    # Post-lowering scheduler: runs in compiler.py after all passes.
+    # Tracked via scheduler_warning, not pass_records.
+    if scheduler_warning is not None:
+        pass  # warning already prepended above
+    elif opt_level in ("2", "3"):
         scalar_notes.append(
-            "DDG list scheduler run post-lowering (O2 proven-safe). "
+            "Post-lowering DDG list scheduler is enabled (O2 proven-safe). "
             "Reorders AEC instructions within basic blocks; STORE→LOAD barrier "
             "preserves memory ordering."
         )
@@ -275,10 +280,15 @@ def _report_notes(pass_records: tuple[PassRecord, ...], scheduler_warning: str |
         missing.append("LICM")
     if "linear-scan-register-allocation" not in pass_names:
         missing.append("register-allocation")
-    if "list-scheduler" not in pass_names:
-        missing.append("post-lowering-scheduling")
     if "loop-unrolling" not in pass_names:
         missing.append("GEMM-loop-unrolling")
+    # Post-lowering scheduler is tracked via scheduler_warning, not pass_names.
+    # Only report it missing when explicitly disabled (scheduler_warning is a
+    # string) or at O0 where it is intentionally not run.
+    if scheduler_warning is not None:
+        missing.append("post-lowering-scheduling")
+    elif opt_level == "0":
+        missing.append("post-lowering-scheduling")
     if len(missing) > 0:
         notes.append(
             f"Not enabled: {', '.join(sorted(missing))}."

@@ -109,7 +109,11 @@ class LoopUnrollingPass:
                 if bound_value is not None:
                     break
 
-            if bound_value is not None and bound_value % self.UNROLL_FACTOR != 0:
+            if bound_value is None:
+                # Dynamic / register / unknown bound → cannot statically prove
+                # even trip count.  Skip unroll — no remainder path exists.
+                continue
+            if bound_value % self.UNROLL_FACTOR != 0:
                 # Trip count not divisible by unroll factor → skip this loop
                 continue
 
@@ -166,6 +170,7 @@ class LoopUnrollingPass:
             # Skip the counter increment — it gets adjusted in-place (add N instead of 1).
             rename_map: dict[str, str] = {}
             renamed_body: list[PTXInstruction] = []
+            rename_failed = False
             for inst in loop_body:
                 if inst.predicate is not None:
                     continue
@@ -179,9 +184,22 @@ class LoopUnrollingPass:
                 new_inst = _rename_instruction_safe(
                     inst, rename_map, skip_regs=loop_carried, used_nums=used_nums,
                 )
-                if new_inst is not None:
-                    renamed_body.append(new_inst)
-                    used_nums.update(_collect_reg_nums(new_inst))
+                if new_inst is None:
+                    # _rename_instruction_safe returns None for control-flow
+                    # instructions (setp/bra/ret — intentionally skipped) AND
+                    # for _fresh_name_safe failures (no safe register slot).
+                    # Distinguish: only control-flow instructions are expected
+                    # to return None; anything else means an abort.
+                    if base not in {"setp", "bra", "ret"}:
+                        rename_failed = True
+                        break
+                    continue
+                renamed_body.append(new_inst)
+                used_nums.update(_collect_reg_nums(new_inst))
+
+            if rename_failed:
+                # Could not find safe register names → skip this loop entirely
+                continue
 
             # Adjust the counter increment: add N instead of 1
             for idx, item in items_in_loop:
@@ -265,6 +283,8 @@ def _rename_instruction_safe(
     new_operands = list(inst.operands)
     if dest is not None and dest not in skip_regs:
         new_name = _fresh_name_safe(dest, rename_map, used_nums)
+        if new_name is None:
+            return None  # no safe slot → abort unroll for this loop
         rename_map[dest] = new_name
         new_operands[0] = new_name
         m = _REG_NUM_RE.match(new_name)
@@ -284,11 +304,15 @@ def _rename_instruction_safe(
     return replace(inst, operands=tuple(new_operands))
 
 
-def _fresh_name_safe(rname: str, rename_map: dict[str, str], used_nums: set[int]) -> str:
-    """Generate a fresh register name that doesn't conflict with existing ones."""
+def _fresh_name_safe(rname: str, rename_map: dict[str, str], used_nums: set[int]) -> str | None:
+    """Generate a fresh register name that doesn't conflict with existing ones.
+
+    Returns None when no safe slot is available — the caller must skip the
+    entire unroll rather than risking a register conflict.
+    """
     m = _REG_NUM_RE.match(rname)
     if not m:
-        return rname
+        return None
     base = rname[:m.start(1)]
     num = int(m.group(1))
     # Find a number that doesn't conflict with used registers
@@ -301,5 +325,5 @@ def _fresh_name_safe(rname: str, rename_map: dict[str, str], used_nums: set[int]
             new_num = (new_num % 256)  # wrap to avoid stalling at 255
         attempts += 1
     if attempts >= max_attempts:
-        return rname  # fallback: don't rename, accept potential conflict
+        return None  # no safe slot found — signal the caller to abort unroll
     return f"{base}{new_num}"

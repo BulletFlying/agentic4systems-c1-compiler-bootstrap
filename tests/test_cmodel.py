@@ -71,7 +71,13 @@ def test_cmodel_executes_without_error(case_name, _kernel, _output_buf, _atol, _
 
 
 def _compute_reference(manifest_path: Path) -> list[float]:
-    """Compute reference output for the public testcases."""
+    """Compute reference output for the public testcases.
+
+    Input values are round-tripped through binary32 (struct.pack/unpack 'f')
+    to match the exact values the CModel reads from GMEM.  Without this step
+    Python's 64-bit floats would give a slightly different reference than
+    the binary32 inputs actually loaded into the CModel.
+    """
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     buffers = manifest.get("buffers", {})
     check = manifest.get("check", {})
@@ -80,6 +86,10 @@ def _compute_reference(manifest_path: Path) -> list[float]:
     import random as _random
     import struct as _struct
 
+    def _as_f32(value: float) -> float:
+        """Round-trip a Python float through IEEE 754 binary32."""
+        return _struct.unpack("<f", _struct.pack("<f", value))[0]
+
     def _load_buf(name: str) -> list[float]:
         buf = buffers[name]
         numel = buf.get("numel", math.prod(buf.get("shape", [1])))
@@ -87,7 +97,7 @@ def _compute_reference(manifest_path: Path) -> list[float]:
         init = buf.get("init", "zero")
         if init == "rand_uniform":
             rng = _random.Random(seed)
-            return [rng.uniform(-1.0, 1.0) for _ in range(numel)]
+            return [_as_f32(rng.uniform(-1.0, 1.0)) for _ in range(numel)]
         elif init == "ones":
             return [1.0] * numel
         return [0.0] * numel
@@ -178,3 +188,41 @@ def test_cmodel_output_matches_reference(case_name, _kernel, output_buf, atol, r
         f"CModel output mismatch: {mismatches}/{len(reference)} elements "
         f"(max_abs={max_abs:.2e}, max_rel={max_rel:.2e})"
     )
+
+
+# ---------------------------------------------------------------------------
+# Unit test: f32 reference input matches CModel binary32 input
+# ---------------------------------------------------------------------------
+
+
+def test_f32_reference_input_matches_cmodel_binary():
+    """Reference rand_uniform inputs must be f32-rounded to match CModel GMEM."""
+    import random as _random
+    import struct as _struct
+
+    def _as_f32(value: float) -> float:
+        return _struct.unpack("<f", _struct.pack("<f", value))[0]
+
+    # Generate the same sequence the CModel harness writes to GMEM
+    seed = 42
+    numel = 100
+    rng = _random.Random(seed)
+    doubles = [rng.uniform(-1.0, 1.0) for _ in range(numel)]
+
+    # CModel GMEM binary (what _rand_f32_binary in cmodel_harness.py produces)
+    cmodel_bytes = _struct.pack("<" + "f" * numel, *doubles)
+    cmodel_values = list(_struct.unpack("<" + "f" * numel, cmodel_bytes))
+
+    # Reference inputs (after f32 round-trip applied in _load_buf)
+    ref_values = [_as_f32(v) for v in doubles]
+
+    # Must match exactly — no tolerance needed, it's the same binary32 values
+    assert cmodel_values == ref_values, (
+        "f32 reference inputs differ from CModel binary GMEM inputs. "
+        "The reference must round-trip through binary32 before computing."
+    )
+
+    # Also verify: raw Python doubles differ from f32 in at least some values
+    # (proving the gap exists and the fix is needed)
+    differ = sum(1 for d, f in zip(doubles, cmodel_values) if d != f)
+    assert differ > 0, f"Expected some f64≠f32 differences, got {differ}/100 identical"

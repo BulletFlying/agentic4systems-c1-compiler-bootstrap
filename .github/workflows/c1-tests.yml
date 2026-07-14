@@ -65,11 +65,26 @@ jobs:
           PY
           python disassembler/aec-objdump "$tmpdir/T2.aecbin" > "$tmpdir/T2.objdump"
           tail -n 1 "$tmpdir/T2.objdump" | grep -q 'HALT'
+      - name: Formal entry-point smoke (T1)
+        run: |
+          chmod +x compiler/aec-cc
+          tmpdir="$(mktemp -d)"
+          ./compiler/aec-cc testcases/T1_basic_lowering/kernel.ptx -O2 -o "$tmpdir/T1.aecbin" --report "$tmpdir/T1.json"
+          test -f "$tmpdir/T1.aecbin" || { echo "FAIL: no aecbin output"; exit 1; }
+          test -s "$tmpdir/T1.aecbin" || { echo "FAIL: empty aecbin"; exit 1; }
+          test $(( $(stat -c%s "$tmpdir/T1.aecbin") % 16 )) -eq 0 || { echo "FAIL: aecbin not 16-byte multiple"; exit 1; }
+          python3 -c "
+          import json
+          r = json.load(open('$tmpdir/T1.json'))
+          assert r['status'] == 'ok', f'status not ok: {r.get(\"status\")}'
+          assert r['opt_level'] == 'O2', f'opt_level not O2: {r.get(\"opt_level\")}'
+          assert r['num_aec_instructions'] > 0, 'zero instructions'
+          "
       - name: CModel smoke (T1-T5 via aec-precise)
         if: runner.os == 'Linux'
         run: |
           chmod +x aec-cmodel/bin/aec-precise-linux-x86_64
-          python -m pytest -q tests/test_cmodel.py -v || echo "CModel tests: some skipped (platform) or failed"
+          python -m pytest -q tests/test_cmodel.py -v
       - name: Repository hygiene
         run: |
           if git ls-files | grep -E '(^|/)(__pycache__|\.pytest_cache)(/|$)|\.py[co]$'; then

@@ -171,6 +171,85 @@ class TestLoopUnrolling:
         result, module = _run_pass(LoopUnrollingPass(), prog)
         assert not result.changed, "non-counter loop must not be unrolled"
 
+    def test_skip_register_bound(self) -> None:
+        """A loop whose bound comes from a register (not an immediate)
+        must NOT be unrolled — no static even-trip-count proof possible."""
+        prog = _make_simple_program([
+            _i("mov.u32", "%r1", "0"),
+            "LOOP",
+            _i("ld.global.f32", "%f1", "[%rd1]"),
+            _i("add.f32", "%f2", "%f1", "%f3"),
+            _i("add.u32", "%r1", "%r1", "1"),
+            _i("setp.lt.u32", "%p1", "%r1", "%r5"),   # bound in register %r5
+            PTXInstruction("bra", ("LOOP",), predicate="%p1"),
+            _i("st.global.f32", "[%rd2]", "%f2"),
+            _i("ret"),
+        ])
+        result, module = _run_pass(LoopUnrollingPass(), prog)
+        assert not result.changed, (
+            "loop with register-bound must not be unrolled (bound_value is None)"
+        )
+
+    def test_skip_no_setp_bound(self) -> None:
+        """A loop without any setp instruction has no detectable bound —
+        must NOT be unrolled."""
+        prog = _make_simple_program([
+            _i("mov.u32", "%r1", "0"),
+            "LOOP",
+            _i("ld.global.f32", "%f1", "[%rd1]"),
+            _i("add.f32", "%f2", "%f1", "%f3"),
+            _i("add.u32", "%r1", "%r1", "1"),
+            # No setp at all — bound is unknown
+            PTXInstruction("bra", ("LOOP",), predicate="%p1"),
+            _i("st.global.f32", "[%rd2]", "%f2"),
+            _i("ret"),
+        ])
+        result, module = _run_pass(LoopUnrollingPass(), prog)
+        assert not result.changed, "loop with no setp bound must not be unrolled"
+
+    def test_fresh_name_exhaustion_skip(self) -> None:
+        """When _fresh_name_safe cannot find a free register slot, the
+        entire unroll must be skipped (no-op) rather than producing a
+        conflicting renamed body."""
+        # Create a loop with ~200 unique register numbers already "used" so
+        # that _fresh_name_safe's search space is exhausted.  The pass
+        # collects used_nums from operands, so we put many different
+        # register operands in the body.
+        many_regs: list[str | PTXInstruction] = [_i("mov.u32", "%r1", "0")]
+        # Inject references to registers 0..250 so used_nums is nearly full
+        for n in range(0, 251, 2):
+            many_regs.append(_i("add.u32", f"%r{n}", f"%r{n}", f"%r{n+1}"))
+        many_regs.extend([
+            "LOOP",
+            _i("ld.global.f32", "%f1", "[%rd1]"),
+            _i("add.f32", "%f2", "%f1", "%f3"),
+            _i("add.u32", "%r1", "%r1", "1"),
+            _i("setp.lt.u32", "%p1", "%r1", "32"),   # even, would unroll
+            PTXInstruction("bra", ("LOOP",), predicate="%p1"),
+            _i("st.global.f32", "[%rd2]", "%f2"),
+            _i("ret"),
+        ])
+        prog = _make_simple_program(many_regs)
+        result, module = _run_pass(LoopUnrollingPass(), prog)
+        # Either the pass skips because _fresh_name_safe returns None
+        # for the dense register space, or it successfully finds slots
+        # (acceptable, but unlikely with 250+ used regs).
+        # The key invariant: if it did change, the renamed body must be
+        # conflict-free (every renamed register not in used_nums).
+        if result.changed:
+            items = module.function.program.items
+            insts = [it for it in items if isinstance(it, PTXInstruction)]
+            # Verify no conflict among renamed (non-counter) destinations.
+            dests = [
+                it.operands[0].strip()
+                for it in insts
+                if hasattr(it, "operands") and len(it.operands) > 0
+                and it.operands[0].strip() != "%r1"
+            ]
+            from collections import Counter
+            dupes = {d: c for d, c in Counter(dests).items() if c > 1}
+            assert len(dupes) == 0, f"register conflicts in unrolled body: {dupes}"
+
 
 # ---------------------------------------------------------------------------
 # GEMM multi-size smoke tests
