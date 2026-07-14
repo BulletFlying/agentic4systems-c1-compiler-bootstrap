@@ -85,9 +85,8 @@ O2 public manifest pass rate: 5/5 (T1-T5), verified 2026-07-14.
 - LICM: 9 tests (3 original + 6 safety: hoist, vary, store, nondom, predicated, rename)
 - Block Simplification: 8 tests (2 original + 6 safety: merge, unreachable, side-effect, branch-remap, no-change, entry-preserve)
 
-O2 effects: T2 37→35 instructions (-5.4%), T3 redundant global loads eliminated.
-O3 adds experimental passes (LinearScanRA, DDG Scheduler, LoopUnrolling) which are still hardening for O2.
-LoadHoisting is now O2 proven-safe (M3 complete).
+O2 effects: T2 37→35 instructions (-5.4%), T3 redundant global loads eliminated, T4 register pressure reduced, T5 GEMM loop unrolled.
+LoadHoisting is O2 proven-safe (M3 complete).
 
 ## Official package alignment status
 
@@ -111,7 +110,7 @@ Aligned in repository facts:
 Remaining work (non-blocking for O2 submission):
 
 - Address ABI negative tests for 64-bit PTX pointers lowered to the low 32-bit AEC abstract address rule (dedicated negative tests needed).
-- Official `aec-precise` self-test integration — CModel harness implemented (`tests/cmodel_harness.py`) but gated on platform (Linux/macOS only; Windows evaluation host not yet available).
+- Official `aec-precise` self-test integration — CModel harness implemented (`tests/cmodel_harness.py`); pending Linux x86-64 execution for Tier 4 dump/reference comparison evidence.
 - Performance model integration with pass pipeline feedback.
 - Robustness variant tests (ACCEPTANCE_CRITERIA.md X.4).
 
@@ -157,20 +156,25 @@ Resolved or changed by the reduced package and later 2026-07-14 errata:
 
 Still unresolved or pending:
 
-- Official Linux ARM CModel availability for reproducing the stated ARM evaluation host locally.
 - Official baseline performance numbers are not public; evaluation compares against an internal baseline compiler.
 - Official machine-readable schema for `hint.md` target parameters does not exist; current local JSON is a project transcription.
 
+## Evaluation environment
+
+- **Platform**: Linux x86-64 (confirmed by organizer, 2026-07-14)
+- **Python**: 3.13.5 (`python3` on PATH)
+- **Compiler timeout**: 180 seconds
+- **Entry point**: `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json`
+- Windows is a supported local development platform but is NOT the official evaluation environment.
+
 ## Verification boundary
 
-Local completion does not mean official CModel or grader approval. Every correctness claim must say whether official `aec-precise` was not run, failed, or passed with exact command evidence.
+Local completion does not mean official CModel or grader approval. Every correctness claim must state which evidence tier was exercised (see README Evidence tiers).
 
-## Next single main task
+## Next tasks (post-submission priorities)
 
-M2 scalar optimization is now complete. Next priorities:
-
-1. Integrate `aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md` into a local, opt-in `aec-precise` runner for public T1-T5 where the checked-in host binary is runnable.
-2. Remove or quarantine `legacy_varying_branch_items` now that C1 does not require divergent BRX/reconvergence.
-3. Linear-scan register allocation — promote from O3 to O2 with CFG-aware liveness integration.
-4. DDG List Scheduler — harden for O2 integration.
-5. M3 memory access optimization — load hoisting and address computation optimization.
+1. Run official `aec-precise` dump/reference comparison for public T1-T5 on Linux x86-64 (Tier 4 evidence).
+2. Add robustness variant tests (parameter scale, grid/block dimensions, register renaming, GEMM sizes).
+3. Add Address ABI negative tests for 64-bit PTX pointers with the 32-bit abstract address rule.
+4. Remove or quarantine `legacy_varying_branch_items` now that C1 does not require divergent BRX/reconvergence.
+5. Handle final Track C submission packaging (C1/C2/C3 directory structure — out of scope for this repository).

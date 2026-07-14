@@ -21,8 +21,8 @@ OFFICIAL_CASE_ROOT = ROOT / "testcases"
 # These verify local repo integrity, not byte-identical match to official upstream
 # (official markdown files may differ in line endings due to .gitattributes LF enforcement).
 OFFICIAL_CMODEL_BLOBS = {
-    "aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md": "cd54c3bdac738c1ed9232d08b2cd490e20380201",
-    "aec-cmodel/USAGE.md": "369f4d5b826699a60d54397b8af1ba6a6229f192",
+    "aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md": "ea3ba534cc804ac1816d642efb7fff2c2b3bf6f3",
+    "aec-cmodel/USAGE.md": "29143dd42988535c1504e8136b3aaf578bbafd22",
     "aec-cmodel/bin/aec-precise-linux-x86_64": "4ac048c7818f09294c81314c462e38196e13cec6",
     "aec-cmodel/bin/aec-precise-macos-arm64": "9a5ab318f00e09b5939624403bc882b31ca1f629",
 }

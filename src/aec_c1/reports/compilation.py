@@ -244,21 +244,23 @@ def _report_notes(pass_records: tuple[PassRecord, ...]) -> list[str]:
         )
     if "loop-unrolling" in pass_names:
         scalar_notes.append(
-            "Loop unrolling is enabled (O3 experimental). "
+            "Loop unrolling is enabled (O2). "
             "Unrolls counted loops with even trip counts and register renaming. "
-            "Needs complex-loop-body hardening for O2."
+            "Local tests exist; official aec-precise validation still pending."
         )
     if "linear-scan-register-allocation" in pass_names:
         scalar_notes.append(
-            "Linear-scan register allocation is enabled (O3 experimental). "
+            "Linear-scan register allocation is enabled (O2, loop-aware). "
             "Allocates GPRs and predicate registers with live-interval analysis. "
-            "Needs CFG-aware liveness integration for O2."
+            "Loop-aware liveness extension prevents cross-iteration register corruption. "
+            "Local tests exist; official aec-precise validation still pending."
         )
     if "list-scheduler" in pass_names:
         scalar_notes.append(
-            "DDG list scheduler is enabled (O3 experimental). "
+            "DDG list scheduler is enabled (O2). "
             "Reorders AEC instructions within basic blocks to hide latency. "
-            "Needs alias-aware memory ordering for O2."
+            "STORE→LOAD barrier preserves memory ordering. "
+            "Local tests exist; official aec-precise validation still pending."
         )
 
     if scalar_notes:
@@ -269,12 +271,16 @@ def _report_notes(pass_records: tuple[PassRecord, ...]) -> list[str]:
     missing.append("global CSE")
     if "loop-invariant-code-motion" not in pass_names:
         missing.append("LICM")
-    if "record-loop-analysis" not in pass_names:
-        pass  # loop analysis is not an optimization, just a fact recorder
-    missing.extend(["scheduling", "register-allocation", "GEMM optimization"])
-    notes.append(
-        f"Not enabled: {', '.join(sorted(missing))}."
-    )
+    if "linear-scan-register-allocation" not in pass_names:
+        missing.append("register-allocation")
+    if "list-scheduler" not in pass_names:
+        missing.append("post-lowering-scheduling")
+    if "loop-unrolling" not in pass_names:
+        missing.append("GEMM-loop-unrolling")
+    if len(missing) > 0:
+        notes.append(
+            f"Not enabled: {', '.join(sorted(missing))}."
+        )
     notes.append(
         "Cycle Model metrics remain null because the reduced official C1 package does not provide a Cycle Model."
     )

@@ -15,7 +15,7 @@ from .base import PassResult
 
 
 # ===========================================================================
-# Load Hoisting (O3 experimental)
+# Load Hoisting (O2 proven-safe)
 # ===========================================================================
 
 class LoadHoistingPass:
