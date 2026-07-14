@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-"""Command line entry point for the C1 AEC compiler."""
+"""Command line entry point for the C1 AEC compiler.
+
+Submission layout (TrackC-.../C1/compiler/):
+    aec-cc  →  src/aec_c1/
+Development layout (repo root):
+    compiler/aec-cc  →  src/aec_c1/
+"""
 
 from pathlib import Path
 import sys
 
-
-ROOT = Path(__file__).resolve().parents[1]
+# Prefer the submission layout: aec-cc and src/ are siblings
+ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
+if not SRC.is_dir():
+    # Development layout: aec-cc is one level deeper
+    ROOT = Path(__file__).resolve().parents[1]
+    SRC = ROOT / "src"
+
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aec_c1.compiler import main
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
