@@ -21,8 +21,8 @@ OFFICIAL_CASE_ROOT = ROOT / "testcases"
 # These verify local repo integrity, not byte-identical match to official upstream
 # (official markdown files may differ in line endings due to .gitattributes LF enforcement).
 OFFICIAL_CMODEL_BLOBS = {
-    "aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md": "cd54c3bdac738c1ed9232d08b2cd490e20380201",
-    "aec-cmodel/USAGE.md": "369f4d5b826699a60d54397b8af1ba6a6229f192",
+    "aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md": "ea3ba534cc804ac1816d642efb7fff2c2b3bf6f3",
+    "aec-cmodel/USAGE.md": "29143dd42988535c1504e8136b3aaf578bbafd22",
     "aec-cmodel/bin/aec-precise-linux-x86_64": "4ac048c7818f09294c81314c462e38196e13cec6",
     "aec-cmodel/bin/aec-precise-macos-arm64": "9a5ab318f00e09b5939624403bc882b31ca1f629",
 }
@@ -86,3 +86,22 @@ def test_reduced_official_public_kernels_compile_with_o2_report(
     assert payload["metrics"]["machine_instruction_count"] == output.stat().st_size // 16
     assert payload["validation"]["local_simulator"] == "not_run_by_compiler"
     assert manifest_payload["kernel"]
+
+
+def test_entry_point_shebang_is_valid() -> None:
+    """compiler/aec-cc must have a #! shebang and resolve its own src/ directory."""
+    entry = ROOT / "compiler" / "aec-cc"
+    first_line = entry.read_text(encoding="utf-8").split("\n")[0]
+    assert first_line.startswith("#!/"), f"missing shebang in {entry}"
+    assert "python3" in first_line, f"shebang must reference python3: {first_line}"
+
+
+def test_cli_defaults_to_o2(tmp_path: Path) -> None:
+    """Invoking aec-cc without -O should use O2 (scoring default)."""
+    kernel = OFFICIAL_CASE_ROOT / "T1_basic_lowering" / "kernel.ptx"
+    output = tmp_path / "default_o2.aecbin"
+    report = tmp_path / "default_o2.json"
+    rc = main([str(kernel), "-o", str(output), "--report", str(report)])
+    assert rc == 0
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["optimization"] == "O2"

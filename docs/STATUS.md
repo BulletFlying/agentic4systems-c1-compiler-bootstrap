@@ -157,20 +157,22 @@ Resolved or changed by the reduced package and later 2026-07-14 errata:
 
 Still unresolved or pending:
 
-- Official Linux ARM CModel availability for reproducing the stated ARM evaluation host locally.
+- Official `aec-precise` integration: harness implemented but gated on platform (Linux/macOS required; Windows evaluation host cannot run the shipped binaries). See `tests/cmodel_harness.py`.
 - Official baseline performance numbers are not public; evaluation compares against an internal baseline compiler.
-- Official machine-readable schema for `hint.md` target parameters does not exist; current local JSON is a project transcription.
+
+## Evaluation environment
+
+- **Platform**: Linux x86-64 (confirmed by organizer, 2026-07-14)
+- **Python**: 3.13.5 (`python3` on PATH)
+- **Compiler timeout**: 180 seconds
+- **Entry point**: `./compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json`
 
 ## Verification boundary
 
 Local completion does not mean official CModel or grader approval. Every correctness claim must say whether official `aec-precise` was not run, failed, or passed with exact command evidence.
 
-## Next single main task
+## Next tasks (post-submission hardening)
 
-M2 scalar optimization is now complete. Next priorities:
-
-1. Integrate `aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md` into a local, opt-in `aec-precise` runner for public T1-T5 where the checked-in host binary is runnable.
-2. Remove or quarantine `legacy_varying_branch_items` now that C1 does not require divergent BRX/reconvergence.
-3. Linear-scan register allocation — promote from O3 to O2 with CFG-aware liveness integration.
-4. DDG List Scheduler — harden for O2 integration.
-5. M3 memory access optimization — load hoisting and address computation optimization.
+1. Integrate `aec-precise` for public T1-T5 on a Linux x86-64 host; compare output dumps against reference computations.
+2. Add robustness variant tests (parameter scale, grid/block dim changes, register renaming, GEMM size variants).
+3. Add Address ABI negative tests for 64-bit PTX pointers with the 32-bit abstract address rule.

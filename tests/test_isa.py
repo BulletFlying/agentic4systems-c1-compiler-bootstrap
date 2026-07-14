@@ -10,7 +10,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aec_c1.compiler import compile_ptx
-from aec_c1.isa import AECInstruction, decode_words_to_instruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
+from aec_c1.isa import AECInstruction, C1_DEFAULT, TRACK_B_V1, decode_words_to_instruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
 from aec_c1.objdump import disassemble
 from aec_c1.sim import TrackBSimulator, bits_to_f32, f32_to_bits
 
@@ -44,6 +44,8 @@ def test_objdump_round_trip_smoke() -> None:
 
 
 def test_encoder_decoder_field_round_trip() -> None:
+    """Round-trip test using the legacy Track-B profile (covers C2-extended opcodes)."""
+    profile = TRACK_B_V1
     instructions = [
         AECInstruction("LOADI", dest=1, imm=40),
         AECInstruction("ADD", dtype="u32", dest=3, src1=1, src2=2, predicate=1, predicate_negated=True),
@@ -54,7 +56,7 @@ def test_encoder_decoder_field_round_trip() -> None:
         AECInstruction("CVTFF", dtype="f32", cvt_src_type="f16", dest=4, src1=5),
     ]
     for instruction in instructions:
-        assert decode_words_to_instruction(encode_instruction(instruction)) == instruction
+        assert decode_words_to_instruction(encode_instruction(instruction, profile), profile) == instruction
 
 
 def test_loadi64_encode_decode_roundtrip() -> None:
@@ -75,6 +77,73 @@ def test_loadi64_encode_decode_roundtrip() -> None:
         assert decoded.imm == imm64, (
             f"imm64 roundtrip failed: expected 0x{imm64:016x}, got 0x{decoded.imm:016x}"
         )
+
+
+def test_c1_default_profile_rejects_non_c1_opcodes() -> None:
+    """Default scoring profile (c1_default) must reject opcodes/types outside C1 spec §4-§5."""
+    from aec_c1.isa import C1_DEFAULT, EncodeError
+    import pytest as _pytest
+
+    # Non-C1 opcodes must be rejected
+    non_c1_opcodes = [
+        "DIV", "NEG", "ABS", "MIN", "MAX", "NOT", "BFX", "BINS",
+        "POPC", "FLO", "CMP", "SEL", "PICK", "LDC", "ATOM",
+        "CALL", "RET", "SYNC.CT", "MBAR", "CVTFF", "CVTFI",
+        "CVTIF", "CVTII", "SHUF", "VOTE", "MTCH",
+        "RCP", "RSQ", "SIN", "COS", "EXP", "LOG", "SQRT", "RDTSC",
+    ]
+    for op in non_c1_opcodes:
+        inst = AECInstruction(op, dtype="u32", dest=1, src1=2, src2=3)
+        with _pytest.raises(EncodeError):
+            encode_instruction(inst, C1_DEFAULT)
+
+    # Non-C1 types must be rejected
+    non_c1_types = ["f64", "f16", "bf16", "u8", "s8"]
+    for t in non_c1_types:
+        inst = AECInstruction("ADD", dtype=t, dest=1, src1=2, src2=3)
+        with _pytest.raises(EncodeError):
+            encode_instruction(inst, C1_DEFAULT)
+
+    # C1 types must be accepted
+    c1_types = ["b32", "b64", "u32", "s32", "f32", "none"]
+    for t in c1_types:
+        inst = AECInstruction("ADD", dtype=t, dest=1, src1=2, src2=3)
+        encode_instruction(inst, C1_DEFAULT)  # must not raise
+
+    # shl.b32 must encode as SHL.u32 (2026-07-14 erratum)
+    inst = AECInstruction("SHL", dtype="b32", dest=1, src1=2, src2=3)
+    words = encode_instruction(inst, C1_DEFAULT)
+    # The encoded type should be u32 (0x2), not b32 (0x0)
+    decoded = decode_words_to_instruction(words, C1_DEFAULT)
+    assert decoded.dtype == "u32", f"SHL.b32 must encode as u32, got {decoded.dtype}"
+
+
+def test_mov_u64_b64_immediate_uses_loadi64() -> None:
+    """mov.u64/mov.b64 with immediate operands must emit LOADI64, not LOADI."""
+    from aec_c1.legacy_lowering import Lowerer
+    from aec_c1.ptx import parse_ptx
+    from aec_c1.isa import C1_DEFAULT
+
+    for ptx_type, imm_val in [("u64", 0xDEADBEEFCAFEBABE), ("b64", 0x123456789ABCDEF0)]:
+        text = f"""\
+.version 9.3
+.target sm_90
+.address_size 64
+
+.visible .entry test(
+    .param .u64 out
+)
+{{
+    .reg .u64 %rd<2>;
+    mov.{ptx_type} %rd1, 0x{imm_val:016x};
+    ret;
+}}
+"""
+        program = parse_ptx(text)
+        lowered = Lowerer(program, profile=C1_DEFAULT).lower()
+        loadi64_ops = [i for i in lowered.instructions if i.opcode == "LOADI64"]
+        assert len(loadi64_ops) >= 1, f"mov.{ptx_type} imm must emit LOADI64, got {[i.opcode for i in lowered.instructions]}"
+        assert loadi64_ops[0].imm == imm_val, f"LOADI64 immediate mismatch: 0x{loadi64_ops[0].imm:016x}"
 
 
 def test_public_ptx_01_lowers_to_raw_instructions() -> None:
@@ -116,8 +185,8 @@ def test_all_public_ptx_files_lower_to_raw_instructions() -> None:
 
 def test_single_register_declarations_without_count_are_supported() -> None:
     ptx = """
-.version 9.3
-.target sm_90
+.version 7.0
+.target sm_70
 .address_size 64
 .visible .entry one_reg(
     .param .u32 param_n
@@ -204,7 +273,7 @@ def test_shl_b32_encodes_as_u32_per_organizer_errata() -> None:
 def test_shl_b32_ptx_lowers_to_shl_u32_aec() -> None:
     """shl.b32 in PTX source must lower to SHL.u32 in AEC, not SHL.b32."""
     ptx = (
-        ".version 9.3\n.target sm_90\n.address_size 64\n"
+        ".version 7.0\n.target sm_70\n.address_size 64\n"
         ".visible .entry shl_test(.param .u64 param_a)\n{\n"
         ".reg .u32 %r<4>;\n.reg .u64 %rd<4>;\n"
         "ld.param.u64 %rd1, [param_a];\n"

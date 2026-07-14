@@ -1,8 +1,10 @@
 """AEC ISA profiles, encoder, and small disassembler helpers.
 
-The default profile follows the reduced official C1 opcode/type/space table.
-Historical C2/B3 profile facts are kept separate for compatibility research;
-they are not part of the default C1 Tensor/TMUL-free path.
+The default profile (C1_DEFAULT) follows the reduced official C1 spec §4–§5:
+only the opcodes, types, memory spaces, and special registers listed in the
+official C1 document are accepted for encoding.  The legacy TRACK_B_V1 profile
+(which includes C2/B3 extensions) is retained for compatibility research but
+is NOT the scoring-critical path.
 """
 
 from __future__ import annotations
@@ -26,6 +28,64 @@ class ISAProfile:
     special_registers: dict[str, int]
     supports_tensor: bool = False
 
+
+# ---------------------------------------------------------------------------
+# Official C1 spec §4 opcode table (scoring-critical default)
+# ---------------------------------------------------------------------------
+
+C1_DEFAULT = ISAProfile(
+    name="c1_default",
+    opcodes={
+        "ADD":    0x0001,
+        "SUB":    0x0002,
+        "MUL":    0x0003,
+        "MAD":    0x0004,
+        "FMA":    0x0005,
+        "AND":    0x0010,
+        "OR":     0x0011,
+        "XOR":    0x0012,
+        "SHL":    0x0014,
+        "SHR":    0x0015,
+        "CMPP":   0x0021,
+        "LD":     0x0030,
+        "ST":     0x0031,
+        "BR":     0x0040,
+        "BRX":    0x0041,
+        "HALT":   0x0045,
+        "CPY":    0x0054,
+        "LOADI":  0x0055,
+        "LOADI64": 0x0056,
+    },
+    types={
+        "b32":  0x0,
+        "b64":  0x1,
+        "u32":  0x2,
+        "s32":  0x3,
+        "f32":  0x8,
+        "none": 0xF,
+    },
+    memory_spaces={"gmem": 0, "smem": 1, "cmem": 2, "lmem": 3, "pmem": 4},
+    compare_ops={"eq": 0, "ne": 1, "lt": 2, "le": 3, "gt": 4, "ge": 5},
+    special_registers={
+        "%tid.x":    0x0100,
+        "%ntid.x":   0x0101,
+        "%ctaid.x":  0x0102,
+        "%nctaid.x": 0x0103,
+        "%laneid":   0x0104,
+        "%tid.y":    0x0110,
+        "%ntid.y":   0x0111,
+        "%ctaid.y":  0x0112,
+        "%nctaid.y": 0x0113,
+        "%tid.z":    0x0120,
+        "%ntid.z":   0x0121,
+        "%ctaid.z":  0x0122,
+        "%nctaid.z": 0x0123,
+    },
+)
+
+# ---------------------------------------------------------------------------
+# Legacy Track-B profile (includes C2/B3 extensions — NOT C1-scoring)
+# ---------------------------------------------------------------------------
 
 TRACK_B_V1 = ISAProfile(
     name="track_b_v1",
@@ -122,7 +182,7 @@ TRACK_B_V1 = ISAProfile(
 )
 
 
-PROFILES = {TRACK_B_V1.name: TRACK_B_V1}
+PROFILES = {C1_DEFAULT.name: C1_DEFAULT, TRACK_B_V1.name: TRACK_B_V1}
 
 PRED_ENABLE = 0x8000
 PRED_NEGATE = 0x4000
@@ -148,7 +208,7 @@ class AECInstruction:
     family: int = 0
 
 
-def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -> tuple[int, int, int, int]:
+def encode_instruction(inst: AECInstruction, profile: ISAProfile = C1_DEFAULT) -> tuple[int, int, int, int]:
     opcode_name = inst.opcode.upper()
     if opcode_name not in profile.opcodes:
         raise EncodeError(f"unsupported opcode for {profile.name}: {inst.opcode}")
@@ -219,7 +279,7 @@ def _uses_immediate(opcode_name: str) -> bool:
     return opcode_name in {"LOADI", "LOADI64", "BR", "BRX", "CALL"}
 
 
-def instructions_to_bytes(instructions: Iterable[AECInstruction], profile: ISAProfile = TRACK_B_V1) -> bytes:
+def instructions_to_bytes(instructions: Iterable[AECInstruction], profile: ISAProfile = C1_DEFAULT) -> bytes:
     out = bytearray()
     for inst in instructions:
         out += struct.pack("<4I", *encode_instruction(inst, profile))
@@ -254,7 +314,7 @@ def _reverse_maps(profile: ISAProfile):
     return cache
 
 
-def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAProfile = TRACK_B_V1) -> AECInstruction:
+def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAProfile = C1_DEFAULT) -> AECInstruction:
     word0, word1, word2, word3 = words
     opcode_value = (word3 >> 16) & 0xFFFF
     pred_ctrl = word3 & 0xFFFF
@@ -324,7 +384,7 @@ def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAPr
     )
 
 
-def decode_instruction(words: tuple[int, int, int, int], profile: ISAProfile = TRACK_B_V1) -> str:
+def decode_instruction(words: tuple[int, int, int, int], profile: ISAProfile = C1_DEFAULT) -> str:
     word0, word1, word2, word3 = words
     opcode_value = (word3 >> 16) & 0xFFFF
     pred_ctrl = word3 & 0xFFFF

@@ -259,7 +259,8 @@ class Lowerer:
     def _lower_mov(self, inst: PTXInstruction, ptx_type: str) -> None:
         self._require_operands(inst, 2)
         dest, source = inst.operands
-        dest_reg = self._ptx_reg(dest, is_pair=ptx_type in {"u64", "b64"})
+        is_wide = ptx_type in {"u64", "b64"}
+        dest_reg = self._ptx_reg(dest, is_pair=is_wide)
         if source in self.profile.special_registers:
             self._emit(
                 AECInstruction(
@@ -281,7 +282,11 @@ class Lowerer:
                 )
             )
         else:
-            self._emit(AECInstruction("LOADI", dest=dest_reg, imm=_parse_immediate(source), **self._guard(inst)))
+            imm_val = _parse_immediate(source)
+            if is_wide:
+                self._emit(AECInstruction("LOADI64", dest=dest_reg, imm=imm_val, **self._guard(inst)))
+            else:
+                self._emit(AECInstruction("LOADI", dest=dest_reg, imm=imm_val, **self._guard(inst)))
 
     def _lower_setp(self, inst: PTXInstruction, opcode_parts: list[str]) -> None:
         self._require_operands(inst, 3)

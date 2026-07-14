@@ -9,7 +9,7 @@ import sys
 
 from .analysis import build_default_analysis_manager
 from .ir import module_from_program
-from .isa import PROFILES, TRACK_B_V1, ISAProfile
+from .isa import C1_DEFAULT, PROFILES, TRACK_B_V1, ISAProfile
 from .legacy_lowering import CompileError, LoweredProgram, Lowerer
 from .legacy_lowering import write_binary as _write_binary
 from .passes import build_pipeline
@@ -25,9 +25,9 @@ class CompilationResult:
 
 def compile_ptx_detailed(
     text: str,
-    profile: ISAProfile = TRACK_B_V1,
+    profile: ISAProfile = C1_DEFAULT,
     *,
-    opt_level: str = "0",
+    opt_level: str = "2",
     input_name: str = "<memory>",
     output_name: str = "",
     performance_target: str = "aec_slide_constraints",
@@ -46,13 +46,14 @@ def compile_ptx_detailed(
     reg_mapping = module.metadata.get("register_mapping")
     lowered = Lowerer(module.function.program, profile=profile,
                       register_mapping=reg_mapping).lower()
-    # Post-lowering scheduler (O2 proven-safe — STORE→LOAD barrier prevents alias violations)
+    # Post-lowering scheduler
+    scheduler_warning: str | None = None
     if opt_level in ("2", "3"):
         try:
             from .passes.scheduler import schedule_lowered
             lowered = schedule_lowered(lowered, module)
-        except Exception:
-            pass
+        except Exception as exc:
+            scheduler_warning = f"post-lowering scheduler failed: {exc}"
     report = CompilationReport(
         input=input_name,
         output=output_name,
@@ -62,13 +63,14 @@ def compile_ptx_detailed(
         passes=pass_records,
         metrics=build_metrics(module, lowered, pass_records),
         performance_target=performance_target,
+        scheduler_warning=scheduler_warning,
     )
     return CompilationResult(lowered=lowered, report=report)
 
 
 def compile_ptx(
     text: str,
-    profile: ISAProfile = TRACK_B_V1,
+    profile: ISAProfile = C1_DEFAULT,
     *,
     opt_level: str = "0",
 ) -> LoweredProgram:
@@ -85,8 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="aec-cc")
     parser.add_argument("input", type=Path)
     parser.add_argument("-o", "--output", required=True, type=Path)
-    parser.add_argument("-O", "--opt-level", default="0", choices=["0", "2", "3"])
-    parser.add_argument("--profile", choices=sorted(PROFILES), default=TRACK_B_V1.name)
+    parser.add_argument("-O", "--opt-level", default="2", choices=["0", "2", "3"])
+    parser.add_argument("--profile", choices=sorted(PROFILES), default=C1_DEFAULT.name)
     parser.add_argument("--performance-target", choices=PERFORMANCE_TARGETS, default="aec_slide_constraints")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args(argv)

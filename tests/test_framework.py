@@ -17,7 +17,7 @@ if str(SRC) not in sys.path:
 from aec_c1.analysis import AnalysisManager
 from aec_c1.compiler import compile_ptx, compile_ptx_detailed, main
 from aec_c1.ir import module_from_program
-from aec_c1.isa import TRACK_B_V1, instructions_to_bytes
+from aec_c1.isa import C1_DEFAULT, TRACK_B_V1, instructions_to_bytes
 from aec_c1.legacy_lowering import Lowerer
 from aec_c1.passes import PassManager, PassResult
 from aec_c1.ptx import parse_ptx
@@ -248,7 +248,7 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     assert first_payload == second_payload, "reports must be identical (modulo output path)"
     payload = first_payload
     assert payload["input"] == input_path.as_posix()
-    assert payload["profile"] == TRACK_B_V1.name
+    assert payload["profile"] == C1_DEFAULT.name
     assert payload["performance_target"] == "track_c_hint_platform_b"
     assert payload["metrics"]["optimization_transforms_applied"] >= 2
     assert "static_metrics" in payload

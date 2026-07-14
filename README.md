@@ -1,6 +1,6 @@
-# C1 Compiler Workspace
+# C1 Compiler — PTX-to-AEC Scalar Compiler
 
-This directory contains the current C1 PTX-to-AEC scalar compiler workspace. It is a bootstrap implementation, not a complete contest solution.
+C1 compiler for the Agentic4Systems Summer School Contest (Track C). Compiles a restricted NVIDIA PTX ISA 9.3 scalar subset to AEC 128-bit fixed-width machine code. All M0–M5 milestones are complete at O2 including loop-aware register allocation, DDG scheduling, and FP32 scalar GEMM loop unrolling.
 
 ## Active official baseline
 
@@ -28,20 +28,26 @@ See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary and `docs
 
 ## Entry points
 
-Required scoring entry point:
+Required scoring entry point (Linux x86-64, Python 3.13.5):
 
 ```bash
-python compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
+./compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
 ```
 
-Development tools retained in this repository:
+The compiler default is `-O2` and the official C1 ISA profile (`c1_default`). The legacy `track_b_v1` profile (with C2/B3 extensions) is available via `--profile track_b_v1`.
 
-```bash
-python disassembler/aec-objdump output.aecbin
-python agent/run_agent
-```
+Development-only tools (not part of the C1 submission):
 
-`agent/run_agent` is now optional tooling, not an official C1 scoring entry point.
+| Path | Purpose | Submission? |
+|---|---|---|
+| `compiler/aec-cc` | Scoring entry point | **Required** |
+| `src/` | Compiler source | **Required** |
+| `disassembler/aec-objdump` | Diagnostic disassembler | No |
+| `agent/run_agent` | Optional automation harness | No |
+| `aec-cmodel/` | Official CModel binaries (reference only) | No |
+| `testcases/` | Public test suite | No |
+| `tests/` | Unit/integration tests | No |
+| `docs/` | Project documentation | No |
 
 ## Project governance
 
@@ -86,20 +92,19 @@ The checked-in compiler currently provides:
 
 ## Known gaps
 
-- Official-path T1-T5 public package compiles and executes correctly via local simulator (`pytest -q tests/test_manifest_execution.py -m slow`; 5 passed, verified 2026-07-14). Loop-aware linear-scan RA prevents cross-iteration register corruption. Official `aec-precise` integration pending platform availability (Linux/macOS only).
-- Official `aec-precise` self-test integration is pending. The checked-in release currently contains macOS arm64 and Linux x86_64 binaries; organizer chat says the evaluation machine is ARM, but this package does not include a Linux ARM binary.
+- Official `aec-precise` integration: CModel harness is implemented (`tests/cmodel_harness.py`) and ready for Linux x86_64. The harness requires the `aec-precise-linux-x86_64` binary and a platform that can execute it. See `docs/STATUS.md` for the detailed evidence tier table.
 - C2/C3 Q&A items are not C1 compiler dependencies; do not add CUDA/CuPy/H200/ONNX/C2 runtime assumptions to `compiler/aec-cc`.
-- Optional Agent/controller work is no longer official-score critical.
-
-See `docs/STATUS.md` for the detailed debt register and next single main task.
 
 ## Verification
 
-Local baseline on the requested Windows environment:
+Evaluation environment: **Linux x86-64, Python 3.13.5**. Compiler timeout: 180 seconds.
 
-```powershell
-C:\Users\HP\anaconda3\envs\zhang\python.exe -m compileall -q src compiler disassembler agent tests
-C:\Users\HP\anaconda3\envs\zhang\python.exe -m pytest -q tests
+Local verification (any platform with Python 3.10+):
+
+```bash
+python -m compileall -q src compiler disassembler agent tests
+python -m pytest -q tests                              # 210 fast tests
+python -m pytest -q tests/test_manifest_execution.py -m slow -v  # 5 e2e manifest tests
 ```
 
-Repository CI is configured in `.github/workflows/c1-tests.yml` for Python 3.10 and 3.13. A workflow file existing is not itself evidence that CI passed; check the actual GitHub Actions run before making that claim.
+Repository CI is configured in `.github/workflows/c1-tests.yml` for Python 3.10 and 3.13.

@@ -13,14 +13,15 @@ from .base import PassResult
 
 
 class ListSchedulerPass:
-    """Reorder AEC instructions within basic blocks using a DDG-based list scheduler.
+    """DDG-based list scheduler (EXPERIMENTAL pipeline pass — not used).
 
-    Safety:
-    - Never reorders across basic block boundaries.
-    - Never reorders ST relative to other ST (memory order preserved).
-    - Never reorders BR/BRX/HALT (control flow stays at block end).
-    - Never moves an instruction before its operand definitions.
-    - Requires valid CFG analysis.
+    NOTE: This pass reads instructions from module.metadata["_lowered_instructions"],
+    which is NEVER populated before the pipeline runs.  The actual scheduling is
+    performed by the standalone `schedule_lowered()` function called from
+    compiler.py after lowering.  See that function for the O2 production path.
+
+    This class is retained for potential future in-pipeline scheduling but is
+    currently a documented no-op.
     """
 
     name = "list-scheduler"
