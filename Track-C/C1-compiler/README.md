@@ -4,7 +4,7 @@ This directory contains the current C1 PTX-to-AEC scalar compiler workspace. It 
 
 ## Active official baseline
 
-The active baseline is the reduced C1 package in `ephonic/Agentic4SystemSummerSchoolContest`. Local `spec.md`, `scoring.md`, `hint.md`, `testcases/` and `aec-cmodel/` are aligned with current official `main` (dce818b, 2026-07-14). Text content is LF-normalized equivalent; raw blob hashes differ due to `.gitattributes` LF enforcement.
+The active baseline is the reduced C1 package in `ephonic/Agentic4SystemSummerSchoolContest`. Local `spec.md`, `scoring.md`, `hint.md`, `testcases/` and `aec-cmodel/` are aligned with the reduced C1 package. Later organizer clarifications are recorded in `docs/ORGANIZER_CLARIFICATIONS_20260714.md`.
 
 Key changes from the earlier working plan:
 
@@ -19,10 +19,12 @@ Key changes from the earlier working plan:
 - Cycle Model will not be provided; performance modeling remains participant-side.
 - The released `aec-cmodel/` package provides `aec-precise-linux-x86_64` and `aec-precise-macos-arm64`; it reports `steps`, which the public CModel docs describe as a warp-level dynamic execution step count.
 - Organizer clarification says compile timeout remains 180 seconds, `compiler/aec-cc` may be a script/Python entry point, and the evaluation environment has `python3`.
+- 2026-07-14 erratum: PTX input `shl.b32` must encode as AEC `SHL.u32`; `and/or/xor.b32` remain `.b32`.
+- 2026-07-14 branch clarification: C1 does not require warp-internal divergent branch or reconvergence; legal `BRX` paths have a uniform branch condition across currently active lanes.
 
 The root `spec.md`, `scoring.md`, `hint.md`, and `testcases/` directory in this directory are now aligned with the reduced official C1 package. Legacy public PTX-01/PTX-02 regression fixtures live under `tests/fixtures/legacy_ptx/` and must not be treated as the active official package.
 
-See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary.
+See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary and `docs/ORGANIZER_CLARIFICATIONS_20260714.md` for the latest errata and cross-track scope notes.
 
 ## Entry points
 
@@ -49,6 +51,7 @@ Repository context must be read from the repository rather than reconstructed fr
 - `scoring.md`: active reduced official 50/40/10 C1 scoring model.
 - `testcases/`: public T1-T5 package from the reduced official archive.
 - `aec-cmodel/`: official released `aec-precise` CModel binaries and command documentation.
+- `docs/ORGANIZER_CLARIFICATIONS_20260714.md`: latest organizer errata, including `shl.b32 -> SHL.u32` and no divergent-BRX requirement.
 - `docs/OFFICIAL_SCOPE_UPDATE_20260713.md`: reduced official package summary and migration priorities.
 - `docs/C1_PROJECT_CHARTER.md`: mission, official scoring, architecture constraints, milestones and acceptance matrix.
 - `docs/PROJECT_OVERVIEW.md`: short project-level world model and source-of-truth map.
@@ -72,8 +75,9 @@ The official repository `ephonic/Agentic4SystemSummerSchoolContest` must not be 
 The checked-in compiler currently provides:
 
 - Raw 128-bit AEC instruction encoding and raw binary output using `w0,w1,w2,w3` little-endian `uint32_t` order.
-- PTX parsing for the earlier public C1 syntax shape, with official-package coverage still under audit.
+- PTX parsing for the current public C1 syntax shape, with official-package coverage still under audit.
 - Basic lowering for parameter loads, special-register moves, integer/FP32 arithmetic, predicates, branches and global loads/stores.
+- Encoder-level support for the 2026-07-14 `shl.b32 -> SHL.u32` erratum.
 - CFG, dominator, loop and conservative uniformity infrastructure.
 - Explicit O0/O2/O3 pipelines with conservative scalar passes: DRE, basic-block-local CSE and local constant folding.
 - Deterministic reports with static metrics.
@@ -85,9 +89,11 @@ The checked-in compiler currently provides:
 - Official-path T1-T5 public package compiles and executes correctly via local simulator (`pytest -q tests/test_manifest_execution.py -m slow`; measured 5 passed in 3:30 on 2026-07-14; not part of default fast gate). Official `aec-precise` integration is not yet implemented in repository tests.
 - PMEM ABI has spec-conformant lowering and dedicated tests. Address ABI negative tests still needed.
 - Manifest-aware compile/run harness exists (`tests/official_harness.py`, stdlib-only).
+- Divergent branch/reconvergence is not required by C1. Any remaining varying-branch fallback is compatibility debt, not an official feature.
 - T3 memory reuse and T4 register allocation optimizations are experimental (O3-only). O2 enables conservative DRE, BB-local CSE, local constant folding, and Global DCE.
 - T5 FP32 scalar GEMM compiles and executes correctly; GEMM-specific optimization (loop scheduling, register pressure) is not implemented.
 - Official `aec-precise` self-test integration is pending. The checked-in release currently contains macOS arm64 and Linux x86_64 binaries; organizer chat says the evaluation machine is ARM, but this package does not include a Linux ARM binary.
+- C2/C3 Q&A items are not C1 compiler dependencies; do not add CUDA/CuPy/H200/ONNX/C2 runtime assumptions to `compiler/aec-cc`.
 - Optional Agent/controller work is no longer official-score critical.
 
 See `docs/STATUS.md` for the detailed debt register and next single main task.
