@@ -1,6 +1,6 @@
 # C1 AEC Scalar Compiler: Project Charter and Acceptance Baseline
 
-This document is the long-term factual baseline for `Track-C/C1-compiler/`. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed on 2026-07-13 in `ephonic/Agentic4SystemSummerSchoolContest`; local C1 package files are LF-normalized text-content-equivalent to official `main` (dce818b, 2026-07-14). Raw blob hashes differ due to `.gitattributes` LF enforcement.
+This document is the long-term factual baseline for `Track-C/C1-compiler/`. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed in `ephonic/Agentic4SystemSummerSchoolContest`; local C1 package files are LF-normalized text-content-equivalent to the reduced official package baseline, with later organizer errata recorded in `docs/ORGANIZER_CLARIFICATIONS_20260714.md`.
 
 ## 1. Mission
 
@@ -32,10 +32,10 @@ Correctness gates performance. A faster binary that fails execution or output ch
 When facts conflict, use this order:
 
 1. Official `Track-C/C1-compiler/spec.md` and `Track-C/C1-compiler/scoring.md` at the currently observed official commit.
-2. Official public `testcases/*/kernel.ptx` and `manifest.json` in the same C1 package.
-3. Official `Track-C/C1-compiler/hint.md` performance reference target parameters.
-4. Official `Track-C/C1-compiler/aec-cmodel/` release docs and binaries for local CModel validation.
-5. Official organizer clarification messages, only when tied to the new package.
+2. More recent organizer clarifications that explicitly correct or constrain the C1 package, such as the 2026-07-14 `shl.b32 -> SHL.u32` and no divergent-BRX clarifications.
+3. Official public `testcases/*/kernel.ptx` and `manifest.json` in the same C1 package.
+4. Official `Track-C/C1-compiler/hint.md` performance reference target parameters.
+5. Official `Track-C/C1-compiler/aec-cmodel/` release docs and binaries for local CModel validation.
 6. This repository's documents, tests and temporary compatibility policies.
 
 Important superseded assumptions:
@@ -46,6 +46,8 @@ Important superseded assumptions:
 - C1 no longer has an official Agent score. Agent code is optional internal tooling.
 - C1 Cycle Model will not be provided. Performance modeling is a participant-side responsibility.
 - Official `aec-precise` exposes a `steps` count; organizer clarification says performance measurement is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle model.
+- C1 does not require warp-divergent branch or reconvergence support. A `non-uniform branch` result from `aec-precise` is expected for divergent input.
+- The PTX input instruction remains `shl.b32`, but the legal AEC output encoding is `SHL.u32`.
 
 ## 3. Repository and remote safety
 
@@ -96,9 +98,11 @@ Architecture constraints:
 - Analysis produces facts; passes consume facts and declare invalidation.
 - CFG-changing transforms must invalidate or recompute dominance, loop, def-use and uniformity facts.
 - Unknown uniformity is not uniform. Branch lowering must be safe for the AEC predicate model.
+- C1 `BRX` is a warp-level branch and assumes all currently active lanes agree on the predicate. Do not implement or claim warp-divergent reconvergence support for C1.
 - Kernel-level PTX `ret` lowers to `HALT`.
 - PTX `.param` maps to `.pmem` by official declaration-order and natural-alignment rules.
 - PTX `.u64/.b64` pointer values map to AEC register pairs; global memory uses the low 32-bit byte address under the official abstract-address rule.
+- PTX `shl.b32` must emit AEC `SHL.u32`; `AND.b32`, `OR.b32` and `XOR.b32` remain `.b32`.
 - Raw `.aecbin` writes each 128-bit instruction as four little-endian `uint32_t` words in `w0,w1,w2,w3` order.
 - Local simulator tests are bootstrap evidence only; official `aec-precise` evidence must be tracked separately.
 
@@ -108,19 +112,19 @@ Architecture constraints:
 
 Goal: AEC opcode/type/space encoding, raw `.aecbin` writer, objdump development tool, CLI smoke, project hygiene.
 
-Acceptance: output size is a positive multiple of 16 bytes; supported opcode/type/space fields encode deterministically; malformed inputs fail explicitly.
+Acceptance: output size is a positive multiple of 16 bytes; supported opcode/type/space fields encode deterministically; `shl.b32` encodes as `SHL.u32`; malformed inputs fail explicitly.
 
 ### M1: T1 basic lowering
 
 Goal: PTX 9.3 restricted-scalar syntax, `.visible .entry`, `.target sm_90`, `.address_size 64`, params, special registers, arithmetic, predicates, global load/store, `ret -> HALT`.
 
-Acceptance: public and mutated T1-style kernels compile and execute correctly under local or official checker.
+Acceptance: public and mutated T1-style kernels compile and execute correctly under local or official checker. Branch tests should include uniform and negated-uniform `BRX`; divergent branch/reconvergence support is not required.
 
 ### M2: T2 scalar optimization
 
 Goal: CFG/control correctness plus constant folding/propagation, DCE, CSE, LICM and basic-block simplification as conservative passes.
 
-Acceptance: `-O2` runs truthful implemented passes; each pass has unit, negative, mutation and executable differential tests; no public-case dispatch.
+Acceptance: `-O2` runs truthful implemented passes; each pass has unit, negative, mutation and executable differential tests; no public-case dispatch; no optimization pass may rely on divergent-BRX behavior.
 
 ### M3: T3 memory-access optimization
 
@@ -162,10 +166,10 @@ For each milestone/sub-milestone:
 Before claiming C1 readiness, the repository must demonstrate:
 
 - `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json` works for the active public package shape.
-- Raw `.aecbin` follows the official instruction-stream format.
+- Raw `.aecbin` follows the official instruction-stream format, including the `shl.b32 -> SHL.u32` erratum.
 - PMEM ABI and address ABI follow the new `spec.md`.
 - T1-T5 public categories have executable correctness evidence.
 - T2-T5 have non-case-specific optimization evidence aligned to the new score weights.
 - Robustness tests cover renaming, reordering, scale, address and GEMM-size variants.
 - Official `aec-precise` evidence is recorded when available.
-- No stale claims remain for C1 Agent scoring, Cycle Model availability, Tensor ISA, low-precision GEMM or object-container `.aecbin` layout.
+- No stale claims remain for C1 Agent scoring, Cycle Model availability, Tensor ISA, low-precision GEMM, divergent-branch reconvergence or object-container `.aecbin` layout.
