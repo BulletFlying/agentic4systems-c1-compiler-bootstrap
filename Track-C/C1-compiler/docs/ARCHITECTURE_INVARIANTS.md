@@ -57,6 +57,27 @@ if register == special_case
 
 Target behavior must be represented by ISA profiles and normal compiler rules.
 
+The 2026-07-14 `shl.b32 -> SHL.u32` organizer erratum is a target encoding rule, not a public-case shortcut. It must be implemented as a general opcode/type rule and covered by tests.
+
+## Branch semantics boundary
+
+C1 does not require warp-internal divergent branch or reconvergence support.
+
+Required behavior:
+
+```text
+BRX may be emitted only for branches proven or assumed legal under the active-lane-uniform condition.
+If a branch is not safe, the compiler should reject it or legalize it by a general transformation such as if-conversion.
+```
+
+Forbidden:
+
+```text
+ad hoc reconvergence stacks for C1
+claiming divergent-branch support without official requirement and tests
+using public branch labels or source shape to choose semantics
+```
+
 ## Simulator role
 
 The simulator is a local semantic checker.
@@ -69,6 +90,7 @@ Architecture changes must preserve:
 
 - PTX-01 correctness
 - PTX-02 control-flow correctness
+- official public T1-T5 compile smoke unless the PR explicitly changes the package harness with evidence
 - O0 compatibility with the established lowering path unless intentionally changed with evidence
 
 ## Review requirement
