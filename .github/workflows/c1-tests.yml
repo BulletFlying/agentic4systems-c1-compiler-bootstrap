@@ -4,11 +4,29 @@ on:
   push:
     branches: [main]
     paths:
-      - "Track-C/C1-compiler/**"
+      - "compiler/**"
+      - "src/**"
+      - "tests/**"
+      - "testcases/**"
+      - "disassembler/**"
+      - "agent/**"
+      - "aec-cmodel/**"
+      - "docs/**"
+      - "*.md"
+      - "pytest.ini"
       - ".github/workflows/c1-tests.yml"
   pull_request:
     paths:
-      - "Track-C/C1-compiler/**"
+      - "compiler/**"
+      - "src/**"
+      - "tests/**"
+      - "testcases/**"
+      - "disassembler/**"
+      - "agent/**"
+      - "aec-cmodel/**"
+      - "docs/**"
+      - "*.md"
+      - "pytest.ini"
       - ".github/workflows/c1-tests.yml"
 
 permissions:
@@ -21,9 +39,6 @@ jobs:
       matrix:
         python-version: ["3.10", "3.13"]
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: Track-C/C1-compiler
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,10 +68,9 @@ jobs:
       - name: CModel smoke (T1-T5 via aec-precise)
         if: runner.os == 'Linux'
         run: |
-          chmod +x Track-C/C1-compiler/aec-cmodel/bin/aec-precise-linux-x86_64
+          chmod +x aec-cmodel/bin/aec-precise-linux-x86_64
           python -m pytest -q tests/test_cmodel.py -v || echo "CModel tests: some skipped (platform) or failed"
       - name: Repository hygiene
-        working-directory: .
         run: |
           if git ls-files | grep -E '(^|/)(__pycache__|\.pytest_cache)(/|$)|\.py[co]$'; then
             echo "Tracked Python cache artifact found" >&2

@@ -4,7 +4,7 @@ This document records performance-model guidance for the active reduced C1 packa
 
 ## Official target parameters
 
-The official `Track-C/C1-compiler/hint.md` file remains useful for constructing a participant-side performance model. A local machine-readable transcription is stored at:
+The official `hint.md` file remains useful for constructing a participant-side performance model. A local machine-readable transcription is stored at:
 
 ```text
 docs/performance_targets/track_c_hint_20260713.json
@@ -18,7 +18,7 @@ The reduced C1 package states that a Cycle Model will not be provided to partici
 
 Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulator. The released `aec-precise` CModel prints stdout JSON with `steps`; use that as the closest official local observation when available. Memory latency estimates from `hint.md` remain useful for optimization reasoning, but they should not be treated as the scoring metric itself.
 
-C1 is still a CPU-executed compiler that emits AEC scalar machine code. The `Track-C/C1-compiler/hint.md` guidance does not make CUDA, H200, PyTorch, `nvcc`, `ncu` or `nsys` dependencies of `compiler/aec-cc`.
+C1 is still a CPU-executed compiler that emits AEC scalar machine code. The `hint.md` guidance does not make CUDA, H200, PyTorch, `nvcc`, `ncu` or `nsys` dependencies of `compiler/aec-cc`.
 
 Auxiliary real-GPU profiling may be used outside the compiler to calibrate intuition, but such measurements are not official `aec-precise` CModel results and must be labeled as auxiliary.
 

@@ -67,7 +67,7 @@ The lower participant metric is better. Category performance uses geometric-mean
 | T4 | 10 | register pressure, live ranges, dependency scheduling, load/compute interleaving |
 | T5 | 12 | FP32 scalar GEMM address/loop/multiply-add optimization |
 
-The public `Track-C/C1-compiler/hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement. Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulation. The released `aec-precise` docs expose stdout JSON `steps` for this purpose.
+The public `hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement. Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulation. The released `aec-precise` docs expose stdout JSON `steps` for this purpose.
 
 C3 H200/CuPy/NVML timing information is C3-specific and must not be used to add CUDA dependencies to the C1 compiler path.
 

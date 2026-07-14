@@ -1,6 +1,6 @@
 # C1 AEC Scalar Compiler: Project Charter and Acceptance Baseline
 
-This document is the long-term factual baseline for `Track-C/C1-compiler/`. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed in `ephonic/Agentic4SystemSummerSchoolContest`; local C1 package files are LF-normalized text-content-equivalent to the reduced official package baseline, with later organizer errata recorded in `docs/ORGANIZER_CLARIFICATIONS_20260714.md`.
+This document is the long-term factual baseline for the C1 compiler repository. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed in `ephonic/Agentic4SystemSummerSchoolContest`; local C1 package files are LF-normalized text-content-equivalent to the reduced official package baseline, with later organizer errata recorded in `docs/ORGANIZER_CLARIFICATIONS_20260714.md`.
 
 ## 1. Mission
 
@@ -31,11 +31,11 @@ Correctness gates performance. A faster binary that fails execution or output ch
 
 When facts conflict, use this order:
 
-1. Official `Track-C/C1-compiler/spec.md` and `Track-C/C1-compiler/scoring.md` at the currently observed official commit.
+1. Official `spec.md` and `scoring.md` at the currently observed official commit.
 2. More recent organizer clarifications that explicitly correct or constrain the C1 package, such as the 2026-07-14 `shl.b32 -> SHL.u32` and no divergent-BRX clarifications.
 3. Official public `testcases/*/kernel.ptx` and `manifest.json` in the same C1 package.
-4. Official `Track-C/C1-compiler/hint.md` performance reference target parameters.
-5. Official `Track-C/C1-compiler/aec-cmodel/` release docs and binaries for local CModel validation.
+4. Official `hint.md` performance reference target parameters.
+5. Official `aec-cmodel/` release docs and binaries for local CModel validation.
 6. This repository's documents, tests and temporary compatibility policies.
 
 Important superseded assumptions:

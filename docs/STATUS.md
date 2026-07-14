@@ -1,6 +1,6 @@
 # C1 Compiler Status
 
-This file is the mutable implementation ledger for `Track-C/C1-compiler/`. Long-term goals and scoring constraints live in `C1_PROJECT_CHARTER.md`; operating rules live in `../AGENTS.md` and `DEVELOPMENT_POLICY.md`.
+This file is the mutable implementation ledger for the C1 compiler repository. Long-term goals and scoring constraints live in `C1_PROJECT_CHARTER.md`; operating rules live in `AGENTS.md` and `DEVELOPMENT_POLICY.md`.
 
 ## Snapshot
 
@@ -118,7 +118,7 @@ Remaining work (non-blocking for O2 submission):
 ## Performance-model status
 
 - `docs/PERFORMANCE_MODEL.md` is updated to the reduced package: no participant Cycle Model, no Tensor model requirement, no official Agent loop requirement.
-- `docs/performance_targets/track_c_hint_20260713.json` remains a local transcription of official `Track-C/C1-compiler/hint.md` target parameters.
+- `docs/performance_targets/track_c_hint_20260713.json` remains a local transcription of official `hint.md` target parameters.
 - Compile reports should converge toward the new official diagnostic fields: instruction/register/predicate/spill/branch/load/store counts, memory-instruction ratio and dependency-depth estimates.
 - Missing estimates or official measurements must be represented as unavailable or `null`; they must not be fabricated.
 
@@ -159,7 +159,7 @@ Still unresolved or pending:
 
 - Official Linux ARM CModel availability for reproducing the stated ARM evaluation host locally.
 - Official baseline performance numbers are not public; evaluation compares against an internal baseline compiler.
-- Official machine-readable schema for `Track-C/C1-compiler/hint.md` target parameters does not exist; current local JSON is a project transcription.
+- Official machine-readable schema for `hint.md` target parameters does not exist; current local JSON is a project transcription.
 
 ## Verification boundary
 

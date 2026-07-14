@@ -1,6 +1,6 @@
 # AGENTS.md — C1 编译器协作规则
 
-本文件适用于 `Track-C/C1-compiler/` 及其子目录。详细目标、评分、里程碑和验收基线见 `docs/C1_PROJECT_CHARTER.md`；当前实施状态见 `docs/STATUS.md`；branch、PR 与新模块修改门禁见 `docs/DEVELOPMENT_POLICY.md`。
+本文件适用于仓库根目录及其子目录。详细目标、评分、里程碑和验收基线见 `docs/C1_PROJECT_CHARTER.md`；当前实施状态见 `docs/STATUS.md`；branch、PR 与新模块修改门禁见 `docs/DEVELOPMENT_POLICY.md`。
 
 ## 1. 不可违反的边界
 

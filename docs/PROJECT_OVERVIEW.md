@@ -1,6 +1,6 @@
 # C1 Project Overview
 
-This document gives the short project-level world model for `Track-C/C1-compiler/`. It is intentionally higher level than `STATUS.md` and lower level than the contest statement. The authoritative long-form charter is `C1_PROJECT_CHARTER.md`.
+This document gives the short project-level world model for the C1 compiler repository. It is intentionally higher level than `STATUS.md` and lower level than the contest statement. The authoritative long-form charter is `C1_PROJECT_CHARTER.md`.
 
 ## Mission
 
