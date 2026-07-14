@@ -1,12 +1,16 @@
 {
-  "PTX-01_vector_add.ptx": {
+  "_meta": {
     "profile": "track_b_v1",
     "opt_level": "O0",
-    "sha256": "ca8ea0ef75bfce842769a8a655bf666bebc7d5db03c58d154dd19d1f18720ef4"
+    "generated_by": "legacy_lowering.compile_ptx",
+    "description": "SHA-256 of raw AEC 128-bit instruction stream for O0 PTX-to-AEC lowering",
+    "last_updated": "2026-07-13",
+    "change_note": "ld.param.u64 now lowered as two LD.pmem.u32 per spec 7.4"
+  },
+  "PTX-01_vector_add.ptx": {
+    "sha256": "b8f297e1e341bedc57375680274209b5b1da003b180eb4e0acda77c0a2e455b7"
   },
   "PTX-02_invariant_poly.ptx": {
-    "profile": "track_b_v1",
-    "opt_level": "O0",
-    "sha256": "714860083b379180ef3872977d66a0ad5fe03cf16c7db772f1eded422c488051"
+    "sha256": "dbf74448d3439e75caedd16c06c7f0fec5a3ccf34e69df31409feb00ac3c4c10"
   }
 }

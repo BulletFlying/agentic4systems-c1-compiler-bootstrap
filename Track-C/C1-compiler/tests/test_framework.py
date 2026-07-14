@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+LEGACY_CASES = ROOT / "tests" / "fixtures" / "legacy_ptx"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
@@ -23,7 +24,7 @@ from aec_c1.ptx import parse_ptx
 
 
 def _load_ptx(name: str) -> str:
-    return (ROOT / "testcases" / name).read_text(encoding="utf-8")
+    return (LEGACY_CASES / name).read_text(encoding="utf-8")
 
 
 def _load_o0_golden_hashes() -> dict[str, dict[str, str]]:
@@ -107,7 +108,7 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     text = _load_ptx("PTX-02_invariant_poly.ptx")
     kwargs = {
         "opt_level": "2",
-        "input_name": "testcases/PTX-02_invariant_poly.ptx",
+        "input_name": "tests/fixtures/legacy_ptx/PTX-02_invariant_poly.ptx",
     }
 
     first = compile_ptx_detailed(text, **kwargs).report.to_json()
@@ -118,29 +119,33 @@ def test_compilation_report_json_is_deterministic_and_truthful() -> None:
     assert payload["optimization"] == "O2"
     assert payload["performance_target"] == "aec_slide_constraints"
     assert payload["pipeline"] == "O2-conservative-scalar"
-    assert [record["name"] for record in payload["passes"]] == [
+    assert [record["name"] for record in payload["pass_records"]] == [
         "validate-program",
         "conservative-dead-result-elimination",
         "basic-block-local-cse",
         "local-constant-folding",
         "materialize-cfg",
         "record-uniformity",
+        "global-dead-code-elimination",
+        "materialize-cfg",
+        "record-uniformity",
     ]
-    dead_result_record = payload["passes"][1]
+    assert payload["passes"] == {"constant_folding": True, "cse": True, "dce": True, "scheduler": "none"}
+    dead_result_record = payload["pass_records"][1]
     assert dead_result_record["changed"] is True
     assert dead_result_record["details"]["removed_instruction_count"] == 1
     assert dead_result_record["details"]["removed_destinations"] == ["%f15"]
-    cse_record = payload["passes"][2]
+    cse_record = payload["pass_records"][2]
     assert cse_record["changed"] is True
     assert cse_record["details"]["removed_instruction_count"] == 1
     assert cse_record["details"]["replaced_destination_count"] == 1
     assert cse_record["details"]["replacements"] == ["%f6 -> %f5"]
-    constant_fold_record = payload["passes"][3]
+    constant_fold_record = payload["pass_records"][3]
     assert constant_fold_record["changed"] is False
     assert constant_fold_record["details"]["folded_instruction_count"] == 0
     assert constant_fold_record["details"]["transforms_applied"] == 0
     assert payload["metrics"]["optimization_transforms_applied"] == 2
-    assert payload["validation"]["official_golden_model"] == "not_available_not_run"
+    assert payload["validation"]["official_golden_model"] == "available_not_integrated_not_run"
     assert payload["validation"]["official_cycle_model"] == "not_available_not_run"
     assert first.endswith("\n")
 
@@ -150,7 +155,7 @@ def test_report_contains_model_facing_static_metrics_without_official_cycle_clai
     payload = compile_ptx_detailed(
         text,
         opt_level="3",
-        input_name="testcases/PTX-02_invariant_poly.ptx",
+        input_name="tests/fixtures/legacy_ptx/PTX-02_invariant_poly.ptx",
         performance_target="track_c_hint_platform_a",
     ).report.to_dict()
 
@@ -183,7 +188,7 @@ def test_report_contains_model_facing_static_metrics_without_official_cycle_clai
     assert payload["static_metrics"]["gmem_stores"] == 1
     assert payload["static_metrics"]["estimated_gmem_bytes_per_warp"] == 256
     assert payload["static_metrics"]["estimated_gmem_128b_services_per_warp"] == 2
-    assert payload["static_metrics"]["memory_space_ops"] == {"gmem": 2, "pmem": 5}
+    assert payload["static_metrics"]["memory_space_ops"] == {"gmem": 2, "pmem": 7}
     assert payload["static_metrics"]["instruction_mix"]["BRX"] == 1
     assert payload["static_metrics"]["estimated_arithmetic_intensity"] is None
     assert payload["static_metrics"]["estimated_dependency_depth"] is None
@@ -208,7 +213,7 @@ def test_compile_rejects_unknown_performance_target() -> None:
 
 
 def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
-    input_path = ROOT / "testcases" / "PTX-02_invariant_poly.ptx"
+    input_path = LEGACY_CASES / "PTX-02_invariant_poly.ptx"
     first_binary = tmp_path / "first.aecbin"
     first_report = tmp_path / "first.json"
     second_binary = tmp_path / "second.aecbin"
@@ -244,8 +249,13 @@ def test_cli_report_is_written_and_repeatable(tmp_path: Path) -> None:
     assert first_rc == 0
     assert second_rc == 0
     assert first_binary.read_bytes() == second_binary.read_bytes()
-    assert first_report.read_bytes() == second_report.read_bytes()
-    payload = json.loads(first_report.read_text(encoding="utf-8"))
+    # Reports are identical except for the output field (different paths)
+    first_payload = json.loads(first_report.read_text(encoding="utf-8"))
+    second_payload = json.loads(second_report.read_text(encoding="utf-8"))
+    first_payload.pop("output", None)
+    second_payload.pop("output", None)
+    assert first_payload == second_payload, "reports must be identical (modulo output path)"
+    payload = first_payload
     assert payload["input"] == input_path.as_posix()
     assert payload["profile"] == TRACK_B_V1.name
     assert payload["performance_target"] == "track_c_hint_platform_b"

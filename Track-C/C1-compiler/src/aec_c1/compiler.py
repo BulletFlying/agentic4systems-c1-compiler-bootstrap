@@ -29,6 +29,7 @@ def compile_ptx_detailed(
     *,
     opt_level: str = "0",
     input_name: str = "<memory>",
+    output_name: str = "",
     performance_target: str = "aec_slide_constraints",
 ) -> CompilationResult:
     if performance_target not in PERFORMANCE_TARGETS:
@@ -45,6 +46,7 @@ def compile_ptx_detailed(
     lowered = Lowerer(module.function.program, profile=profile).lower()
     report = CompilationReport(
         input=input_name,
+        output=output_name,
         optimization=opt_level,
         profile=profile.name,
         pipeline=pipeline.name,
@@ -87,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             profile,
             opt_level=args.opt_level,
             input_name=args.input.as_posix(),
+            output_name=args.output.as_posix(),
             performance_target=args.performance_target,
         )
         write_binary(result.lowered, args.output, profile)

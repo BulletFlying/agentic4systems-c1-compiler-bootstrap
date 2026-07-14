@@ -38,10 +38,18 @@ jobs:
       - name: PTX-02 CLI and objdump smoke
         run: |
           tmpdir="$(mktemp -d)"
-          python compiler/aec-cc testcases/PTX-02_invariant_poly.ptx -O0 -o "$tmpdir/PTX-02.aecbin"
-          python disassembler/aec-objdump "$tmpdir/PTX-02.aecbin" > "$tmpdir/PTX-02.objdump"
-          test "$(grep -c 'BRX' "$tmpdir/PTX-02.objdump")" -eq 1
-          tail -n 1 "$tmpdir/PTX-02.objdump" | grep -q 'HALT'
+          python compiler/aec-cc testcases/T2_scalar_optimization/kernel.ptx -O2 -o "$tmpdir/T2.aecbin" --report "$tmpdir/T2.json"
+          python - "$tmpdir/T2.json" <<'PY'
+          import json
+          import sys
+
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert payload["optimization"] == "O2"
+          assert payload["pipeline"] == "O2-conservative-scalar"
+          assert payload["metrics"]["machine_instruction_count"] > 0
+          PY
+          python disassembler/aec-objdump "$tmpdir/T2.aecbin" > "$tmpdir/T2.objdump"
+          tail -n 1 "$tmpdir/T2.objdump" | grep -q 'HALT'
       - name: Repository hygiene
         working-directory: .
         run: |

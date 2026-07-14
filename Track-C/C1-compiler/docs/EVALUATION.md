@@ -1,6 +1,6 @@
 # C1 Evaluation Mapping
 
-This document maps repository work to the active reduced official C1 scoring package observed on 2026-07-13 at official commit `68a4aea16e69045e397d12333244f7974245d49c`.
+This document maps repository work to the active reduced official C1 scoring package observed on 2026-07-13. Local C1 package files are LF-normalized text-content-equivalent to official `main` (dce818b, 2026-07-14).
 
 ## Official score model
 
@@ -21,6 +21,8 @@ compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json
 ```
 
 `-O2` is therefore the scoring-critical pipeline. `-O0` may remain as a local regression baseline, but it is not the official scoring invocation.
+
+Organizer clarification on 2026-07-13 adds that the compiler timeout remains 180 seconds, `compiler/aec-cc` may be a script/Python entry point, and the evaluation environment has `python3`.
 
 ## Correctness mapping
 
@@ -54,7 +56,7 @@ The lower participant metric is better. Category performance uses geometric-mean
 | T4 | 10 | register pressure, live ranges, dependency scheduling, load/compute interleaving |
 | T5 | 12 | FP32 scalar GEMM address/loop/multiply-add optimization |
 
-The public `Track-C/hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement.
+The public `Track-C/C1-compiler/hint.md` target table and local static report metrics are guidance for building a performance model. They are not an official Cycle Model replacement. Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulation. The released `aec-precise` docs expose stdout JSON `steps` for this purpose.
 
 ## Diagnostic report fields
 
@@ -120,11 +122,11 @@ Tier 1: unit evidence. Examples: parser behavior, encoder fields, analysis cache
 
 Tier 2: executable local evidence. Examples: local simulator differential tests, O0/O2 binary regression, public manifest harness.
 
-Tier 3: official Golden Model evidence. The organizers plan to release an ARM AEC Golden Model for correctness self-test; record exact command and result when available.
+Tier 3: official CModel evidence. The released `aec-cmodel/` package contains `aec-precise-linux-x86_64`, `aec-precise-macos-arm64`, `USAGE.md` and `PUBLIC_AEC_PRECISE_COMMANDS.md`. Record exact command, binary path and result when used.
 
 Tier 4: performance-model evidence. Examples: static report comparison, baseline-vs-candidate comparison, auxiliary real-GPU profiling clearly labeled as non-official.
 
-A PR must say which tier was actually run. Do not write “official correctness passed” until the official Golden Model has actually run.
+A PR must say which tier was actually run. Do not write “official correctness passed” until official `aec-precise` has actually run.
 
 ## Merge readiness checklist
 
@@ -137,4 +139,4 @@ A change is score-aligned only if it answers:
 5. Does it update deterministic reports truthfully?
 6. Does it preserve architecture guardrails?
 7. Does it avoid public-case semantic dispatch?
-8. Was official ARM Golden Model unavailable, not run, or passed?
+8. Was official `aec-precise` unavailable, not run, failed, or passed?

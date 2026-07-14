@@ -15,10 +15,10 @@ source PTX-style IR
   -> lowering to AEC legal operations
   -> register allocation and scheduling
   -> AEC profile-specific encoding and object packaging
-  -> disassembly, local simulation, reports, and Agent feedback
+  -> disassembly, local simulation, reports, and optional tooling feedback
 ```
 
-The key design constraint is separation of ownership. Analysis computes facts. Passes transform IR through declared contracts. Lowering enforces target legality. Backend code encodes or packages instructions. The Agent selects configurations from reports and validation results; it must not rewrite compiler internals at evaluation time.
+The key design constraint is separation of ownership. Analysis computes facts. Passes transform IR through declared contracts. Lowering enforces target legality. Backend code encodes the official raw `.aecbin` instruction stream. Optional report-driven tooling may select configurations from reports and validation results, but it must not rewrite compiler internals at evaluation time and is not an official C1 scoring category.
 
 ## Current M2.2-A architecture
 
@@ -46,11 +46,11 @@ compiler.py
 
 `passes/` owns pass interfaces, pass ordering, and pass records. Foundation pipelines are non-optimizing; scalar transforms must later enter through this package.
 
-`reports/` owns deterministic compilation report output. The report is the future Agent observation surface, so it must be truthful and reproducible.
+`reports/` owns deterministic compilation report output. The report is the participant-side performance-model and optional tooling observation surface, so it must be truthful and reproducible.
 
-`isa.py` owns target profiles and encoding/decoding. Track-B and C2/B3 profile facts must remain separate.
+`isa.py` owns target profiles and encoding/decoding. The default C1 path follows the current official C1 `spec.md`; any historical Track-B or C2/B3 profile facts must remain isolated and must not reintroduce Tensor/TMUL scope into C1.
 
-`sim.py` is a local semantic checker. It must not share transform logic with the compiler and is not a replacement for the official Golden Model.
+`sim.py` is a local semantic checker. It must not share transform logic with the compiler and is not a replacement for the official `aec-precise` CModel.
 
 ## Dependency direction
 
@@ -103,12 +103,12 @@ report metrics
 status update
 ```
 
-## Backend and object packaging
+## Backend and binary packaging
 
-The encoder currently supports Track-B raw 128-bit instruction bytes and keeps a C2/B3 profile boundary. The official C1 `.aecbin` container is still an unresolved requirement because the public spec says the output must include Header, Code, Data, Relocation, and Symbol Table, but the precise layout is not yet implemented in this bootstrap branch.
+The reduced official C1 `.aecbin` format is now defined as a raw AEC 128-bit instruction stream. There is no Header, Data section, Relocation section or Symbol Table in the current C1 format.
 
-Object packaging must eventually be isolated from instruction encoding. A future `object.py` or `backend/object_writer.py` should support raw Track-B compatibility, any C2 image form used for reference, and the final C1 container once clarified.
+Binary writing must remain isolated from instruction selection and encoding so legality checks stay reviewable: file size must be a nonzero multiple of 16 bytes, labels must be resolved before writeout, branch targets must be in range, and encoded opcode/type/space/register/predicate fields must stay within the official C1 limits.
 
-## Agent boundary
+## Optional tooling boundary
 
-The Agent is not part of core lowering. It observes reports and validation results, proposes a configuration, invokes the compiler, verifies correctness, compares performance, and records the result. It may use an LLM for exploration outside the correctness boundary, but the evaluated Agent loop must be reproducible and must not depend on online LLM availability.
+Agent/controller code is not part of official C1 scoring after the 2026-07-13 reduction. If retained, it is optional development tooling: it may observe reports and validation results, propose a configuration, invoke the compiler, verify correctness, compare local static/performance-model metrics, and record the result. It must not become a required evaluation entry point or distract from the scoring-critical `-O2` compiler path.

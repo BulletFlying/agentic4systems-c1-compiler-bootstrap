@@ -1,4 +1,9 @@
-"""Named pass pipelines selected by the public optimization level."""
+"""Named pass pipelines selected by the public optimization level.
+
+O2 is scoring-critical: only passes with proven correctness (unit, negative,
+and manifest e2e coverage) are enabled. O3 enables experimental passes that
+may improve performance but carry higher miscompile risk.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +16,13 @@ from .foundation import (
 from .manager import PassManager
 from .scalar import (
     BasicBlockLocalCSEPass,
+    BlockSimplificationPass,
     ConservativeDeadResultEliminationPass,
+    GlobalConstantPropagationPass,
+    GlobalDeadCodeEliminationPass,
     LocalConstantFoldingPass,
+    LoopInvariantCodeMotionPass,
+    RepeatedGlobalLoadReusePass,
 )
 
 
@@ -23,6 +33,7 @@ def build_pipeline(opt_level: str) -> PassManager:
             [ValidateProgramPass(), MaterializeCFGPass()],
         )
     if opt_level == "2":
+        # Scoring-critical: only passes with proven safety and correctness evidence.
         return PassManager(
             "O2-conservative-scalar",
             [
@@ -32,19 +43,34 @@ def build_pipeline(opt_level: str) -> PassManager:
                 LocalConstantFoldingPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
+                GlobalDeadCodeEliminationPass(),
+                MaterializeCFGPass(),
+                RecordUniformityPass(),
             ],
         )
     if opt_level == "3":
+        # Experimental: adds LICM, global CP, load reuse, and block simplification
+        # on top of the O2 baseline. These passes have known limitations and are
+        # NOT proven safe for scoring-critical use.
         return PassManager(
-            "O3-conservative-scalar",
+            "O3-experimental",
             [
                 ValidateProgramPass(),
                 ConservativeDeadResultEliminationPass(),
                 BasicBlockLocalCSEPass(),
                 LocalConstantFoldingPass(),
+                RepeatedGlobalLoadReusePass(),
+                MaterializeCFGPass(),
+                RecordUniformityPass(),
+                GlobalConstantPropagationPass(),
+                GlobalDeadCodeEliminationPass(),
                 MaterializeCFGPass(),
                 RecordUniformityPass(),
                 RecordLoopAnalysisPass(),
+                BlockSimplificationPass(),
+                LoopInvariantCodeMotionPass(),
+                MaterializeCFGPass(),
+                RecordUniformityPass(),
             ],
         )
     raise ValueError(f"unsupported optimization level: O{opt_level}")

@@ -1,9 +1,9 @@
 {
   "source": {
     "repository": "ephonic/Agentic4SystemSummerSchoolContest",
-    "path": "Track-C/hint.md",
-    "observed_commit": "d985a6e9f910891835530b835b850ae8282f32f7",
-    "observed_date": "2026-07-13",
+    "path": "Track-C/C1-compiler/hint.md",
+    "observed_commit": "dce818bcbc650a0cf7ded7b40f88d2b1657a32e3",
+    "observed_date": "2026-07-14",
     "note": "Human-readable official Track-C performance reference target parameters transcribed for local model/report development. This file is not an official scoring schema."
   },
   "platforms": {

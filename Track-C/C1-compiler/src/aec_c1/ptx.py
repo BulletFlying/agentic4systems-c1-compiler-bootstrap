@@ -41,9 +41,9 @@ class PTXProgram:
 
 
 PARAM_RE = re.compile(r"\.param\s+\.(?P<dtype>\w+)\s+(?P<name>\w+)")
-REG_RE = re.compile(r"\.reg\s+\.(?P<dtype>\w+)\s+%(?P<prefix>[A-Za-z]+)<(?P<count>\d+)>")
+REG_RE = re.compile(r"\.reg\s+\.(?P<dtype>\w+)\s+%(?P<prefix>[A-Za-z]+)(?:<(?P<count>\d+)>)?")
 ENTRY_RE = re.compile(r"\.entry\s+(?P<name>\w+)\s*\(")
-PRED_RE = re.compile(r"@(?P<neg>!)?%(?P<pred>p\d+)\s+")
+PRED_RE = re.compile(r"@(?P<neg>!)?%(?P<pred>p\d*)\s+")
 
 
 def parse_ptx(text: str) -> PTXProgram:
@@ -79,7 +79,7 @@ def parse_ptx(text: str) -> PTXProgram:
                 RegisterDecl(
                     prefix=reg.group("prefix"),
                     dtype=reg.group("dtype"),
-                    count=int(reg.group("count")),
+                    count=int(reg.group("count") or "1"),
                 )
             )
             continue

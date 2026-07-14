@@ -9,17 +9,17 @@
 - 禁止根据文件名、case ID、输入 hash、固定标签、固定 PTX 寄存器编号或固定指令位置生成特例答案。
 - 禁止放松 simulator/validator 语义来让测试通过。
 - 无法证明合法的 lowering/optimization 必须保守 fallback 或明确报错，不得猜测。
-- 未实际运行的验证不得标为 passed；本地 simulator 通过不得表述为官方 Golden/Cycle Model 通过。
+- 未实际运行的验证不得标为 passed；本地 simulator 通过不得表述为官方 `aec-precise`/CModel 通过。
 
 ## 2. 事实来源顺序
 
 1. 官方 C1 `spec.md`、`scoring.md`。
-2. 官方 Track-B `spec.md` Appendix A 与公开 assembly/binary/testcase。
-3. 官方 C2 starter kit 中明确标注的扩展。
-4. 发布会/群公告。
+2. 官方 C1 manifest-based public testcase package。
+3. 发布会/群公告中与当前 C1 包一致的补充说明。
+4. 官方 Track-B / C2 材料中仍被当前 C1 `spec.md` 明确引用的兼容事实。
 5. 本仓库文档和兼容推断。
 
-默认 ISA profile 是 Track-B Appendix A。C2/B3 tensor encoding 必须保持独立 profile，不得混入默认编码。
+默认 ISA 与 binary format 以当前 C1 `spec.md` 为准：raw AEC 128-bit instruction stream、官方 C1 opcode/type/space 表、官方 PMEM ABI。旧 Track-B/C2/B3 tensor 资料只能作为历史背景，不得把 Tensor/TMUL/低精度 GEMM 重新纳入 C1 默认路径。
 
 ## 3. 每轮开始前
 
@@ -60,8 +60,8 @@ M2.1 PTX-02 CFG + uniform loop correctness
 M2.2 CSE/DCE/LICM/basic-block optimization
 M3 PTX-03 memory optimization
 M4 PTX-04 register allocation + scheduling
-M5 PTX-05 multi-precision GEMM
-M6 Agent + final object format + packaging
+M5 PTX-05 FP32 scalar GEMM
+M6 final packaging, official `aec-precise` integration, and optional report-driven tooling
 ```
 
 不得在当前 milestone 的 correctness gate 未通过时提前宣称后续能力完成。

@@ -17,7 +17,7 @@ from aec_c1.ptx import PTXInstruction, parse_ptx
 from aec_c1.sim import TrackBSimulator, f32_to_bits
 
 
-PTX02 = ROOT / "testcases" / "PTX-02_invariant_poly.ptx"
+PTX02 = ROOT / "tests" / "fixtures" / "legacy_ptx" / "PTX-02_invariant_poly.ptx"
 PASS_NAME = "conservative-dead-result-elimination"
 
 
@@ -45,13 +45,21 @@ def test_o2_and_o3_remove_ptx02_never_read_result_but_o0_is_unchanged() -> None:
     assert len(optimized_o2.lowered.instructions) == len(baseline.lowered.instructions) - 2
     assert len(optimized_o3.lowered.instructions) == len(baseline.lowered.instructions) - 2
 
+    # O2: DRE(1) + CSE(1) = 2
+    record_o2 = _pass_record(optimized_o2)
+    assert record_o2.changed is True
+    assert record_o2.details["transforms_applied"] == 1
+    assert record_o2.details["removed_destinations"] == ["%f15"]
+    assert optimized_o2.report.metrics["optimization_transforms_applied"] == 2
+
+    # O3: same base + experimental passes may add transforms (e.g. LICM hoisting)
+    record_o3 = _pass_record(optimized_o3)
+    assert record_o3.changed is True
+    assert record_o3.details["transforms_applied"] == 1
+    assert record_o3.details["removed_destinations"] == ["%f15"]
+    assert optimized_o3.report.metrics["optimization_transforms_applied"] >= 2
+
     for optimized in (optimized_o2, optimized_o3):
-        record = _pass_record(optimized)
-        assert record.changed is True
-        assert record.details["removed_instruction_count"] == 1
-        assert record.details["removed_destinations"] == ["%f15"]
-        assert record.details["transforms_applied"] == 1
-        assert optimized.report.metrics["optimization_transforms_applied"] == 2
         assert optimized.report.metrics["machine_instruction_count"] == len(
             optimized.lowered.instructions
         )

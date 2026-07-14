@@ -1,7 +1,7 @@
 {
-  "name": "T2_repeated_expression",
-  "category": "T2_scalar_optimization",
-  "kernel": "repeated_expression",
+  "name": "T3_repeated_global_load",
+  "category": "T3_memory_reuse",
+  "kernel": "repeated_global_load",
   "gridDim": [
     2048,
     1,
@@ -27,6 +27,12 @@
       "buffer": "y"
     },
     {
+      "name": "param_z",
+      "type": "u64",
+      "kind": "gmem_ptr",
+      "buffer": "z"
+    },
+    {
       "name": "param_out",
       "type": "u64",
       "kind": "gmem_ptr",
@@ -44,13 +50,19 @@
       "dtype": "f32",
       "numel": 524288,
       "init": "rand_uniform",
-      "seed": 3
+      "seed": 5
     },
     "y": {
       "dtype": "f32",
       "numel": 524288,
       "init": "rand_uniform",
-      "seed": 4
+      "seed": 6
+    },
+    "z": {
+      "dtype": "f32",
+      "numel": 524288,
+      "init": "rand_uniform",
+      "seed": 7
     },
     "out": {
       "dtype": "f32",
@@ -61,7 +73,7 @@
   },
   "check": {
     "type": "elementwise",
-    "formula": "out[i] = (x[i] + y[i]) * (x[i] + y[i]) + x[i]",
+    "formula": "out[i] = x[i] * y[i] + x[i] * z[i]",
     "output": "out",
     "atol": 1e-05,
     "rtol": 1e-05

@@ -1,17 +1,24 @@
 # 2026-07-13 Official C1 Scope Update
 
-This document records the reduced official C1 requirement baseline observed in `ephonic/Agentic4SystemSummerSchoolContest` at commit `68a4aea16e69045e397d12333244f7974245d49c` and in the uploaded `C1编译器赛题.zip` package.
+This document records the reduced official C1 requirement baseline observed in `ephonic/Agentic4SystemSummerSchoolContest`. Historical snapshots: initial package at `68a4aea`, CModel release at `f3b8b3e`, text-confirmation at `5f5e8ad`. Current official `main` is `dce818b` (2026-07-14); local files are LF-normalized content-equivalent.
 
 ## Source snapshot
 
 ```text
 Official repository: ephonic/Agentic4SystemSummerSchoolContest
-Observed commit: 68a4aea16e69045e397d12333244f7974245d49c
-Updated files:
+Reduced package commit: 68a4aea16e69045e397d12333244f7974245d49c
+CModel release commit: f3b8b3eb8ae0d92a977894604e822cf5c89ab194
+Current official main confirmation: dce818bcbc650a0cf7ded7b40f88d2b1657a32e3
+Updated package files:
 - Track-C/C1-compiler/spec.md
 - Track-C/C1-compiler/scoring.md
 - Track-C/C1-compiler/testcases/*/kernel.ptx
 - Track-C/C1-compiler/testcases/*/manifest.json
+Added CModel files:
+- Track-C/C1-compiler/aec-cmodel/USAGE.md
+- Track-C/C1-compiler/aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md
+- Track-C/C1-compiler/aec-cmodel/bin/aec-precise-linux-x86_64
+- Track-C/C1-compiler/aec-cmodel/bin/aec-precise-macos-arm64
 ```
 
 The new package is the active C1 baseline. Older references to Tensor ISA, multi-precision GEMM, C1 Agent scoring, C1 Cycle Model availability, and object-container `.aecbin` layout are superseded unless the official repository changes again.
@@ -27,7 +34,7 @@ The new package is the active C1 baseline. Older references to Tensor ISA, multi
 | Tensor/TMUL | Possible T5 tensor profile / low precision | Not required |
 | GEMM | Multi-precision GEMM concern | FP32 scalar GEMM only |
 | Cycle Model | Expected but unavailable | Will not be provided; teams build their own performance model |
-| Golden Model | Unavailable | Organizers plan to release an ARM AEC Golden Model for correctness self-test |
+| Golden/CModel | Unavailable | `aec-precise` released with Linux x86_64 and macOS arm64 binaries plus public-case commands |
 | Agent scoring | Previously 10 points | Removed from new scoring |
 | Evaluation opt level | Unclear / O0-O3 discussed | Evaluator compiles with `-O2` |
 | Submission | Compiler + objdump + agent under older assumption | Official text now requires compiler source and `compiler/aec-cc` |
@@ -46,6 +53,8 @@ total_score       <= 100
 There is no C1 Agent score in the new `scoring.md`. Agent code in this repository is now optional development infrastructure only. It must not be described as an official-scoring requirement.
 
 Performance is correctness-gated. The evaluator uses official baseline compiler results as the reference and computes category-level geometric-mean speedups. T1 has no performance points; T2/T3/T4/T5 carry 8/10/10/12 performance points respectively.
+
+Organizer clarification after the package release says the performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle model. The compile timeout remains 180 seconds. Script/Python `compiler/aec-cc` entry points are allowed and the evaluation environment has `python3`.
 
 ## New milestone interpretation
 

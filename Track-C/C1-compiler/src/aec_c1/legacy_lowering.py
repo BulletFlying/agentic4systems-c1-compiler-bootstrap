@@ -14,7 +14,7 @@ import re
 import sys
 
 from .analysis import Uniformity, UniformityFacts, analyze_uniformity
-from .cfg import CFG, CFGError, build_cfg
+from .analysis.cfg import CFG, CFGError, build_cfg
 from .isa import AECInstruction, PROFILES, TRACK_B_V1, ISAProfile, instructions_to_bytes
 from .ptx import PTXInstruction, PTXProgram, parse_ptx
 
@@ -170,7 +170,7 @@ class Lowerer:
             self._emit(AECInstruction("HALT"))
         elif base == "cvt":
             self._lower_cvt(inst, opcode_parts)
-        elif base in {"add", "sub", "mul", "mad", "and", "shr"}:
+        elif base in {"add", "sub", "mul", "mad", "and", "or", "xor", "shl", "shr", "fma"}:
             self._lower_alu(inst, opcode_parts)
         else:
             raise CompileError(f"line {inst.source_line}: unsupported PTX opcode {inst.opcode}")
@@ -181,18 +181,37 @@ class Lowerer:
         param_name = _strip_brackets(source)
         if param_name not in self.parameter_offsets:
             raise CompileError(f"line {inst.source_line}: unknown parameter {param_name}")
-        address = self.regs.temp()
-        self._emit(AECInstruction("LOADI", dest=address, imm=self.parameter_offsets[param_name]))
+        base_offset = self.parameter_offsets[param_name]
         dest_reg = self._ptx_reg(dest, is_pair=ptx_type in {"u64", "b64"})
-        self._emit(
-            AECInstruction(
-                "LD",
-                dtype=PTX_TO_AEC_TYPE[ptx_type],
-                dest=dest_reg,
-                src1=address,
-                memory_space="pmem",
+
+        if ptx_type in {"u64", "b64"}:
+            # Spec §7.4: two LD.pmem.u32 for 64-bit parameters
+            tmp_lo = self.regs.temp()
+            self._emit(AECInstruction("LOADI", dest=tmp_lo, imm=base_offset))
+            self._emit(
+                AECInstruction(
+                    "LD", dtype="u32", dest=dest_reg, src1=tmp_lo, memory_space="pmem",
+                )
             )
-        )
+            tmp_hi = self.regs.temp()
+            self._emit(AECInstruction("LOADI", dest=tmp_hi, imm=base_offset + 4))
+            self._emit(
+                AECInstruction(
+                    "LD", dtype="u32", dest=dest_reg + 1, src1=tmp_hi, memory_space="pmem",
+                )
+            )
+        else:
+            tmp = self.regs.temp()
+            self._emit(AECInstruction("LOADI", dest=tmp, imm=base_offset))
+            self._emit(
+                AECInstruction(
+                    "LD",
+                    dtype=PTX_TO_AEC_TYPE[ptx_type],
+                    dest=dest_reg,
+                    src1=tmp,
+                    memory_space="pmem",
+                )
+            )
 
     def _lower_ld_global(self, inst: PTXInstruction, ptx_type: str) -> None:
         self._require_operands(inst, 2)
@@ -300,9 +319,12 @@ class Lowerer:
                 raise CompileError(
                     f"line {inst.source_line}: conditional branch is not proven uniform and was not legalised"
                 )
-            if inst.predicate_negated:
-                raise CompileError(f"line {inst.source_line}: negated BRX is not directly supported yet")
-            branch = AECInstruction("BRX", predicate=_predicate_number(inst.predicate), imm=0)
+            branch = AECInstruction(
+                "BRX",
+                predicate=_predicate_number(inst.predicate),
+                predicate_negated=inst.predicate_negated,
+                imm=0,
+            )
         self.pending_branches.append((len(self.instructions), target))
         self._emit(branch)
 
@@ -325,28 +347,44 @@ class Lowerer:
         )
 
     def _lower_alu(self, inst: PTXInstruction, opcode_parts: list[str]) -> None:
-        self._require_operands(inst, 3 if opcode_parts[0] != "mad" else 4)
         base = opcode_parts[0]
+        needs_4 = base in {"mad", "fma"}
+        self._require_operands(inst, 4 if needs_4 else 3)
         ptx_type = opcode_parts[-1]
         dest = inst.operands[0]
         sources = inst.operands[1:]
 
         if base == "mul" and len(opcode_parts) >= 3 and opcode_parts[1] == "wide":
+            dest_low = self._ptx_reg(dest, is_pair=True)
             self._emit(
                 AECInstruction(
                     "MUL",
                     dtype="u32",
-                    dest=self._ptx_reg(dest, is_pair=True),
+                    dest=dest_low,
                     src1=self._operand_reg(sources[0]),
                     src2=self._operand_reg(sources[1]),
                     **self._guard(inst),
                 )
             )
+            # spec §8.4: high 32 bits are zero for 32-bit abstract address rule
+            self._emit(
+                AECInstruction(
+                    "LOADI",
+                    dtype="u32",
+                    dest=dest_low + 1,
+                    imm=0,
+                    **self._guard(inst),
+                )
+            )
             return
 
-        opcode = {"add": "ADD", "sub": "SUB", "mul": "MUL", "mad": "MAD", "and": "AND", "shr": "SHR"}[base]
+        opcode = {
+            "add": "ADD", "sub": "SUB", "mul": "MUL", "mad": "MAD",
+            "and": "AND", "or": "OR", "xor": "XOR", "shl": "SHL",
+            "shr": "SHR", "fma": "FMA",
+        }[base]
         aec_type = PTX_TO_AEC_TYPE.get(ptx_type, ptx_type)
-        if base == "mad":
+        if base in {"mad", "fma"}:
             self._emit(
                 AECInstruction(
                     opcode,
@@ -359,13 +397,24 @@ class Lowerer:
                 )
             )
         elif base == "add" and ptx_type in {"u64", "b64"}:
+            dest_low = self._ptx_reg(dest, is_pair=True)
             self._emit(
                 AECInstruction(
                     "ADD",
                     dtype="u32",
-                    dest=self._ptx_reg(dest, is_pair=True),
+                    dest=dest_low,
                     src1=self._operand_reg(sources[0], is_pair=True),
                     src2=self._operand_reg(sources[1], is_pair=True),
+                    **self._guard(inst),
+                )
+            )
+            # spec §8.5: high 32 bits are zero for 32-bit abstract address rule
+            self._emit(
+                AECInstruction(
+                    "LOADI",
+                    dtype="u32",
+                    dest=dest_low + 1,
+                    imm=0,
                     **self._guard(inst),
                 )
             )
@@ -598,13 +647,15 @@ def _strip_brackets(token: str) -> str:
 
 
 def _is_register(token: str) -> bool:
-    return bool(re.match(r"%[A-Za-z]+\d+$", token.strip()))
+    return bool(re.match(r"%(?:rd|bd|p|r|s|b|f|h)\d*$", token.strip()))
 
 
 def _predicate_number(token: str) -> int:
     token = token.strip()
     if token.startswith("%"):
         token = token[1:]
+    if token == "p":
+        return 0
     if not re.fullmatch(r"p\d+", token):
         raise CompileError(f"invalid predicate register: {token}")
     number = int(token[1:])

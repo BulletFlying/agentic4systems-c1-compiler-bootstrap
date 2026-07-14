@@ -95,12 +95,19 @@ class CFG:
     def natural_loops(self) -> list[NaturalLoop]:
         loops: list[NaturalLoop] = []
         for tail, header in self.backedges():
+            if tail == header:
+                # Self-loop: natural loop is just {header}.  External
+                # predecessors are outside the loop.
+                loops.append(NaturalLoop(header=header, tail=tail, blocks=frozenset({header})))
+                continue
             loop_blocks = {header, tail}
             worklist = [tail]
             while worklist:
                 block_name = worklist.pop()
                 for pred in self.blocks[block_name].predecessors:
-                    if pred not in loop_blocks:
+                    # Stop at the header: its external predecessors (preheader
+                    # etc.) are outside the natural loop.
+                    if pred != header and pred not in loop_blocks:
                         loop_blocks.add(pred)
                         worklist.append(pred)
             loops.append(NaturalLoop(header=header, tail=tail, blocks=frozenset(loop_blocks)))

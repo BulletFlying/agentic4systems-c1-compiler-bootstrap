@@ -34,9 +34,9 @@ Required compiler functionality:
 - integer, bitwise, shift and FP32 scalar ops.
 - `ld.global.*`, `st.global.*`, predicates, branches and `ret -> HALT`.
 
-Required evidence: manifest-aware public T1 harness, local/official Golden differential, mutation coverage for parameter/grid/block/register changes.
+Required evidence: manifest-aware public T1 harness, local simulator and official `aec-precise` differential where runnable, mutation coverage for parameter/grid/block/register changes.
 
-Status: older PTX-01-style lowering exists, but new package syntax and manifest alignment are not complete.
+Status: T1-T5 public manifest package compiles and executes correctly via local simulator (`pytest -m slow`). O2 pipeline: DRE → BB-local CSE → local CF → Global DCE. Stale PTX-01..PTX-05 kept as regression fixtures only.
 
 ## Phase 2: T2 scalar optimization
 
@@ -46,11 +46,11 @@ Subphase M2.1: CFG/control correctness and safe branch lowering.
 
 Subphase M2.2-A: framework foundation: IR boundary, analysis manager, pass manager, reports, guardrails and truthful pipelines.
 
-Subphase M2.2-B: scalar optimization passes: conservative DRE, local CSE, local constant folding, then broader constant propagation, DCE, LICM and block simplification only when tests justify them.
+Subphase M2.2-B: scalar optimization passes: conservative DRE, local CSE, local constant folding, and worklist Global DCE on the scoring `-O2` path. Broader constant propagation, LICM and block simplification remain experimental until tests justify them.
 
 Required evidence: pass-level unit tests, negative tests, mutation tests and executable differential tests; report metrics must show real pass effects.
 
-Status: M2.1 and M2.2-A are locally established. Conservative DRE, basic-block-local CSE and local constant folding exist, but general DCE/global CSE/LICM/block merge do not.
+Status: M2.1 and M2.2-A are locally established. Conservative DRE, basic-block-local CSE, local constant folding and conservative worklist Global DCE exist on `-O2`. Global constant propagation, block simplification, LICM and repeated-load reuse are O3-only experimental passes with known limitations. Global CSE, scheduler, register allocation and GEMM-specific optimization are not implemented.
 
 ## Phase 3: T3 memory-access optimization
 
@@ -120,4 +120,4 @@ Status: an Agent-loop PR exists, but after the official scope reduction it shoul
 
 ## Merge policy for roadmap progress
 
-A phase is merge-ready only when implementation, tests, status ledger and documentation agree. Any unrun official Golden Model step must be marked as not run. No milestone may use public-case structure as a substitute for generalized compiler reasoning.
+A phase is merge-ready only when implementation, tests, status ledger and documentation agree. Any unrun official `aec-precise` step must be marked as not run. No milestone may use public-case structure as a substitute for generalized compiler reasoning.

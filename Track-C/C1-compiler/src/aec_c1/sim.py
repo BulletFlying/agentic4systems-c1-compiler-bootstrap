@@ -43,15 +43,47 @@ class BranchTrace:
 class LaneState:
     block: int
     thread: int
-    block_dim: int
-    grid_dim: int
+    block_dim: tuple[int, int, int]
+    grid_dim: tuple[int, int, int]
     warp_size: int
     registers: list[int] = field(default_factory=lambda: [0] * 256)
     predicates: list[bool] = field(default_factory=lambda: [False] * 8)
 
     @property
+    def block_x(self) -> int:
+        return self.block % self.grid_dim[0]
+
+    @property
+    def block_y(self) -> int:
+        return (self.block // self.grid_dim[0]) % self.grid_dim[1]
+
+    @property
+    def block_z(self) -> int:
+        return self.block // (self.grid_dim[0] * self.grid_dim[1])
+
+    @property
+    def thread_x(self) -> int:
+        return self.thread % self.block_dim[0]
+
+    @property
+    def thread_y(self) -> int:
+        return (self.thread // self.block_dim[0]) % self.block_dim[1]
+
+    @property
+    def thread_z(self) -> int:
+        return self.thread // (self.block_dim[0] * self.block_dim[1])
+
+    @property
+    def total_threads(self) -> int:
+        return self.block_dim[0] * self.block_dim[1] * self.block_dim[2]
+
+    @property
+    def total_blocks(self) -> int:
+        return self.grid_dim[0] * self.grid_dim[1] * self.grid_dim[2]
+
+    @property
     def global_thread(self) -> int:
-        return self.block * self.block_dim + self.thread
+        return self.block * self.total_threads + self.thread
 
 
 @dataclass
@@ -71,16 +103,22 @@ class TrackBSimulator:
         pmem: bytes | bytearray,
         gmem: bytes | bytearray,
         *,
-        block_dim: int,
-        grid_dim: int,
+        block_dim: tuple[int, int, int] | int,
+        grid_dim: tuple[int, int, int] | int,
         warp_size: int = 32,
         max_steps: int = 10000,
     ) -> None:
         self.instructions = instructions
         self.pmem = bytearray(pmem)
         self.gmem = bytearray(gmem)
-        self.block_dim = block_dim
-        self.grid_dim = grid_dim
+        if isinstance(block_dim, int):
+            self.block_dim = (block_dim, 1, 1)
+        else:
+            self.block_dim = block_dim
+        if isinstance(grid_dim, int):
+            self.grid_dim = (grid_dim, 1, 1)
+        else:
+            self.grid_dim = grid_dim
         self.warp_size = warp_size
         self.max_steps = max_steps
         self.accesses: list[MemoryAccess] = []
@@ -89,10 +127,18 @@ class TrackBSimulator:
         self.brx_execution_count = 0
         self.non_uniform_branch_failures = 0
 
+    @property
+    def total_blocks(self) -> int:
+        return self.grid_dim[0] * self.grid_dim[1] * self.grid_dim[2]
+
+    @property
+    def total_threads_per_block(self) -> int:
+        return self.block_dim[0] * self.block_dim[1] * self.block_dim[2]
+
     def run(self) -> SimulationResult:
-        for block in range(self.grid_dim):
-            for warp_start in range(0, self.block_dim, self.warp_size):
-                lane_count = min(self.warp_size, self.block_dim - warp_start)
+        for block in range(self.total_blocks):
+            for warp_start in range(0, self.total_threads_per_block, self.warp_size):
+                lane_count = min(self.warp_size, self.total_threads_per_block - warp_start)
                 lanes = [
                     LaneState(
                         block=block,
@@ -147,7 +193,8 @@ class TrackBSimulator:
     def _branchx_next_pc(self, inst: AECInstruction, lanes: list[LaneState], pc: int) -> int:
         if inst.predicate is None:
             raise SimulationError("BRX requires a predicate")
-        decisions = [lane.predicates[inst.predicate] for lane in lanes]
+        raw_decisions = [lane.predicates[inst.predicate] for lane in lanes]
+        decisions = [not d if inst.predicate_negated else d for d in raw_decisions]
         uniform = all(decisions) or not any(decisions)
         taken = all(decisions)
         self.brx_execution_count += 1
@@ -179,7 +226,14 @@ class TrackBSimulator:
         opcode = inst.opcode.upper()
         if opcode == "LOADI":
             lane.registers[inst.dest] = inst.imm & MASK32
+        elif opcode == "LOADI64":
+            if inst.dest >= 255:
+                raise SimulationError(f"LOADI64 dest {inst.dest} too high for register pair")
+            lane.registers[inst.dest] = inst.imm & MASK32
+            lane.registers[inst.dest + 1] = (inst.imm >> 32) & MASK32
         elif opcode == "CPY":
+            if inst.dtype in {"b64", "f64"} and (inst.dest >= 255 or inst.src1 >= 255):
+                raise SimulationError(f"CPY.{inst.dtype} dest {inst.dest} or src1 {inst.src1} too high for register pair")
             lane.registers[inst.dest] = self._copy_value(inst, lane)
             if inst.dtype in {"b64", "f64"}:
                 lane.registers[inst.dest + 1] = lane.registers[inst.src1 + 1]
@@ -200,6 +254,23 @@ class TrackBSimulator:
                 lane.registers[inst.src2],
                 lane.registers[inst.src3],
             )
+        elif opcode == "FMA":
+            lane.registers[inst.dest] = self._fma_result(
+                inst.dtype,
+                lane.registers[inst.src1],
+                lane.registers[inst.src2],
+                lane.registers[inst.src3],
+            )
+        elif opcode == "AND":
+            lane.registers[inst.dest] = (lane.registers[inst.src1] & lane.registers[inst.src2]) & MASK32
+        elif opcode == "OR":
+            lane.registers[inst.dest] = (lane.registers[inst.src1] | lane.registers[inst.src2]) & MASK32
+        elif opcode == "XOR":
+            lane.registers[inst.dest] = (lane.registers[inst.src1] ^ lane.registers[inst.src2]) & MASK32
+        elif opcode == "SHL":
+            lane.registers[inst.dest] = (lane.registers[inst.src1] << (lane.registers[inst.src2] & 31)) & MASK32
+        elif opcode == "SHR":
+            lane.registers[inst.dest] = (lane.registers[inst.src1] >> (lane.registers[inst.src2] & 31)) & MASK32
         elif opcode == "CMPP":
             lane.predicates[inst.dest] = self._compare(inst.compare, inst.dtype, lane.registers[inst.src1], lane.registers[inst.src2])
         else:
@@ -234,28 +305,33 @@ class TrackBSimulator:
 
     def _special_value(self, selector: int, lane: LaneState) -> int:
         if selector == TRACK_B_V1.special_registers["%tid.x"]:
-            return lane.thread
+            return lane.thread_x
+        if selector == TRACK_B_V1.special_registers["%tid.y"]:
+            return lane.thread_y
+        if selector == TRACK_B_V1.special_registers["%tid.z"]:
+            return lane.thread_z
         if selector == TRACK_B_V1.special_registers["%ntid.x"]:
-            return lane.block_dim
+            return lane.block_dim[0]
+        if selector == TRACK_B_V1.special_registers["%ntid.y"]:
+            return lane.block_dim[1]
+        if selector == TRACK_B_V1.special_registers["%ntid.z"]:
+            return lane.block_dim[2]
         if selector == TRACK_B_V1.special_registers["%ctaid.x"]:
-            return lane.block
+            return lane.block_x
+        if selector == TRACK_B_V1.special_registers["%ctaid.y"]:
+            return lane.block_y
+        if selector == TRACK_B_V1.special_registers["%ctaid.z"]:
+            return lane.block_z
         if selector == TRACK_B_V1.special_registers["%nctaid.x"]:
-            return lane.grid_dim
+            return lane.grid_dim[0]
+        if selector == TRACK_B_V1.special_registers["%nctaid.y"]:
+            return lane.grid_dim[1]
+        if selector == TRACK_B_V1.special_registers["%nctaid.z"]:
+            return lane.grid_dim[2]
         if selector == TRACK_B_V1.special_registers["%laneid"]:
-            return lane.thread % lane.warp_size
+            return lane.thread_x % lane.warp_size
         if selector == TRACK_B_V1.special_registers["%warpid"]:
-            return lane.thread // lane.warp_size
-        if selector in {
-            TRACK_B_V1.special_registers["%tid.y"],
-            TRACK_B_V1.special_registers["%tid.z"],
-            TRACK_B_V1.special_registers["%ctaid.y"],
-            TRACK_B_V1.special_registers["%ctaid.z"],
-            TRACK_B_V1.special_registers["%ntid.y"],
-            TRACK_B_V1.special_registers["%ntid.z"],
-            TRACK_B_V1.special_registers["%nctaid.y"],
-            TRACK_B_V1.special_registers["%nctaid.z"],
-        }:
-            return 0
+            return lane.thread_x // lane.warp_size
         raise SimulationError(f"unsupported special register selector: 0x{selector:04x}")
 
     def _binary_result(self, dtype: str, op: str, lhs_bits: int, rhs_bits: int) -> int:
@@ -280,6 +356,11 @@ class TrackBSimulator:
         if dtype == "f32":
             product = bits_to_f32(f32_to_bits(bits_to_f32(lhs_bits) * bits_to_f32(rhs_bits)))
             return f32_to_bits(product + bits_to_f32(add_bits))
+        return ((lhs_bits * rhs_bits) + add_bits) & MASK32
+
+    def _fma_result(self, dtype: str, lhs_bits: int, rhs_bits: int, add_bits: int) -> int:
+        if dtype == "f32":
+            return f32_to_bits(bits_to_f32(lhs_bits) * bits_to_f32(rhs_bits) + bits_to_f32(add_bits))
         return ((lhs_bits * rhs_bits) + add_bits) & MASK32
 
     def _compare(self, compare: str | None, dtype: str, lhs_bits: int, rhs_bits: int) -> bool:

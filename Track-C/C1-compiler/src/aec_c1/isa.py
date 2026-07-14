@@ -1,7 +1,8 @@
 """AEC ISA profiles, encoder, and small disassembler helpers.
 
-The default profile follows Track-B Appendix A.  A C2 profile is kept
-separate because C2 renumbers LOADI/CPY/CVT* and adds tensor opcodes.
+The default profile follows the reduced official C1 opcode/type/space table.
+Historical C2/B3 profile facts are kept separate for compatibility research;
+they are not part of the default C1 Tensor/TMUL-free path.
 """
 
 from __future__ import annotations
@@ -212,6 +213,8 @@ def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -
         if inst.predicate is None:
             raise EncodeError("BRX requires a predicate")
         pred_ctrl |= inst.predicate & 0x7
+        if inst.predicate_negated:
+            pred_ctrl |= PRED_NEGATE
     elif inst.predicate is not None:
         pred_ctrl |= PRED_ENABLE | (inst.predicate & 0x7)
         if inst.predicate_negated:
@@ -230,8 +233,16 @@ def encode_instruction(inst: AECInstruction, profile: ISAProfile = TRACK_B_V1) -
     elif inst.family:
         pred_ctrl |= (inst.family & 0x7) << FAMILY_SHIFT
 
-    word0 = inst.imm & 0xFFFFFFFF if _uses_immediate(opcode_name) else inst.src3 & 0xFFFFFFFF
-    word1 = inst.src2 & 0xFFFFFFFF
+    if opcode_name == "LOADI64":
+        # 64-bit immediate: low 32 in word0, high 32 in word1
+        word0 = inst.imm & 0xFFFFFFFF
+        word1 = (inst.imm >> 32) & 0xFFFFFFFF
+    elif _uses_immediate(opcode_name):
+        word0 = inst.imm & 0xFFFFFFFF
+        word1 = inst.src2 & 0xFFFFFFFF
+    else:
+        word0 = inst.src3 & 0xFFFFFFFF
+        word1 = inst.src2 & 0xFFFFFFFF
     word2 = ((inst.dest & 0xFFFF) << 16) | (inst.src1 & 0xFFFF)
     word3 = ((opcode & 0xFFFF) << 16) | (pred_ctrl & 0xFFFF)
     return (word0, word1, word2, word3)
@@ -259,21 +270,35 @@ def bytes_to_words(blob: bytes) -> list[tuple[int, int, int, int]]:
     return list(struct.iter_unpack("<4I", blob))
 
 
+_REVERSE_CACHE: dict[str, dict] = {}
+
+def _reverse_maps(profile: ISAProfile):
+    """Build reverse lookup maps for a profile (cached by profile name)."""
+    cache = _REVERSE_CACHE.get(profile.name)
+    if cache is None:
+        cache = {
+            "opcodes": {v: k for k, v in profile.opcodes.items()},
+            "types": {v: k for k, v in profile.types.items()},
+            "cmp": {v: k for k, v in profile.compare_ops.items()},
+            "spaces": {v: k for k, v in profile.memory_spaces.items()},
+            "specials": {v: k for k, v in profile.special_registers.items()},
+        }
+        _REVERSE_CACHE[profile.name] = cache
+    return cache
+
+
 def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAProfile = TRACK_B_V1) -> AECInstruction:
     word0, word1, word2, word3 = words
     opcode_value = (word3 >> 16) & 0xFFFF
     pred_ctrl = word3 & 0xFFFF
-    reverse_opcodes = {value: key for key, value in profile.opcodes.items()}
-    reverse_types = {value: key for key, value in profile.types.items()}
-    reverse_cmp = {value: key for key, value in profile.compare_ops.items()}
-    reverse_spaces = {value: key for key, value in profile.memory_spaces.items()}
+    rev = _reverse_maps(profile)
 
-    opcode = reverse_opcodes.get(opcode_value)
+    opcode = rev["opcodes"].get(opcode_value)
     if opcode is None:
         raise EncodeError(f"unknown opcode for {profile.name}: 0x{opcode_value:04x}")
 
     dtype_code = (pred_ctrl >> TYPE_SHIFT) & 0xF
-    dtype = reverse_types.get(dtype_code)
+    dtype = rev["types"].get(dtype_code)
     if dtype is None:
         raise EncodeError(f"unknown type for {profile.name}: 0x{dtype_code:x}")
 
@@ -281,6 +306,7 @@ def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAPr
     predicate_negated = False
     if opcode == "BRX":
         predicate = pred_ctrl & 0x7
+        predicate_negated = bool(pred_ctrl & PRED_NEGATE)
     elif pred_ctrl & PRED_ENABLE:
         predicate = pred_ctrl & 0x7
         predicate_negated = bool(pred_ctrl & PRED_NEGATE)
@@ -289,27 +315,40 @@ def decode_words_to_instruction(words: tuple[int, int, int, int], profile: ISAPr
     memory_space = None
     cvt_src_type = None
     if opcode in {"CMP", "CMPP"}:
-        compare = reverse_cmp.get((pred_ctrl >> FAMILY_SHIFT) & 0x7)
+        compare = rev["cmp"].get((pred_ctrl >> FAMILY_SHIFT) & 0x7)
         if compare is None:
             raise EncodeError(f"unknown compare op for {profile.name}: 0x{(pred_ctrl >> FAMILY_SHIFT) & 0x7:x}")
     elif opcode in {"LD", "ST", "LDC"}:
-        memory_space = reverse_spaces.get((pred_ctrl >> SPACE_SHIFT) & 0x7)
+        memory_space = rev["spaces"].get((pred_ctrl >> SPACE_SHIFT) & 0x7)
         if memory_space is None:
             raise EncodeError(f"unknown memory space for {profile.name}: 0x{(pred_ctrl >> SPACE_SHIFT) & 0x7:x}")
     elif opcode.startswith("CVT"):
         src_type_code = (pred_ctrl >> 10) & 0xF
-        cvt_src_type = reverse_types.get(src_type_code)
+        cvt_src_type = rev["types"].get(src_type_code)
         if cvt_src_type is None:
             raise EncodeError(f"unknown conversion source type for {profile.name}: 0x{src_type_code:x}")
+
+    if opcode == "LOADI64":
+        imm64 = ((word1 & 0xFFFFFFFF) << 32) | (word0 & 0xFFFFFFFF)
+        src2_val = 0
+        src3_val = 0
+    elif _uses_immediate(opcode):
+        imm64 = word0 & 0xFFFFFFFF
+        src2_val = word1 & 0xFFFFFFFF
+        src3_val = 0
+    else:
+        imm64 = 0
+        src2_val = word1 & 0xFFFFFFFF
+        src3_val = word0 & 0xFFFFFFFF
 
     return AECInstruction(
         opcode=opcode,
         dtype=dtype,
         dest=(word2 >> 16) & 0xFFFF,
         src1=word2 & 0xFFFF,
-        src2=word1 & 0xFFFFFFFF,
-        src3=word0 & 0xFFFFFFFF if not _uses_immediate(opcode) else 0,
-        imm=word0 & 0xFFFFFFFF if _uses_immediate(opcode) else 0,
+        src2=src2_val,
+        src3=src3_val,
+        imm=imm64,
         predicate=predicate,
         predicate_negated=predicate_negated,
         compare=compare,
@@ -322,17 +361,14 @@ def decode_instruction(words: tuple[int, int, int, int], profile: ISAProfile = T
     word0, word1, word2, word3 = words
     opcode_value = (word3 >> 16) & 0xFFFF
     pred_ctrl = word3 & 0xFFFF
-    reverse_opcodes = {value: key for key, value in profile.opcodes.items()}
-    reverse_types = {value: key for key, value in profile.types.items()}
-    opcode = reverse_opcodes.get(opcode_value, f"OP_{opcode_value:04x}")
-    dtype = reverse_types.get((pred_ctrl >> TYPE_SHIFT) & 0xF, f"type{(pred_ctrl >> TYPE_SHIFT) & 0xF:x}")
+    rev = _reverse_maps(profile)
+    opcode = rev["opcodes"].get(opcode_value, f"OP_{opcode_value:04x}")
+    dtype = rev["types"].get((pred_ctrl >> TYPE_SHIFT) & 0xF, f"type{(pred_ctrl >> TYPE_SHIFT) & 0xF:x}")
     dest = (word2 >> 16) & 0xFFFF
     src1 = word2 & 0xFFFF
     src2 = word1 & 0xFFFF
     src3 = word0 & 0xFFFF
     pred = _decode_predicate(opcode, pred_ctrl)
-
-    reverse_specials = {value: key for key, value in profile.special_registers.items()}
 
     if opcode == "LOADI":
         text = f"LOADI R{dest}, 0x{word0:08x}"
@@ -346,22 +382,20 @@ def decode_instruction(words: tuple[int, int, int, int], profile: ISAProfile = T
     elif opcode == "HALT":
         text = "HALT"
     elif opcode in {"LD", "ST", "LDC"}:
-        reverse_spaces = {value: key for key, value in profile.memory_spaces.items()}
-        space = reverse_spaces.get((pred_ctrl >> SPACE_SHIFT) & 0x7, "space?")
+        space = rev["spaces"].get((pred_ctrl >> SPACE_SHIFT) & 0x7, "space?")
         if opcode == "ST":
             text = f"ST.{space}.{dtype} [R{src1}], R{src2}"
         else:
             text = f"{opcode}.{space}.{dtype} R{dest}, [R{src1}]"
     elif opcode in {"CMP", "CMPP"}:
-        reverse_cmp = {value: key for key, value in profile.compare_ops.items()}
-        cmp_op = reverse_cmp.get((pred_ctrl >> FAMILY_SHIFT) & 0x7, "cmp?")
+        cmp_op = rev["cmp"].get((pred_ctrl >> FAMILY_SHIFT) & 0x7, "cmp?")
         dst_prefix = "P" if opcode == "CMPP" else "R"
         text = f"{opcode}.{cmp_op}.{dtype} {dst_prefix}{dest}, R{src1}, R{src2}"
     elif opcode.startswith("CVT"):
-        src_type = reverse_types.get((pred_ctrl >> 10) & 0xF, "type?")
+        src_type = rev["types"].get((pred_ctrl >> 10) & 0xF, "type?")
         text = f"{opcode}.{dtype}.{src_type} R{dest}, R{src1}"
     elif opcode == "CPY":
-        source = reverse_specials.get(src1, f"R{src1}")
+        source = rev["specials"].get(src1, f"R{src1}")
         text = f"CPY.{dtype} R{dest}, {source}"
     elif opcode == "RDTSC":
         text = f"{opcode}.{dtype} R{dest}, R{src1}"

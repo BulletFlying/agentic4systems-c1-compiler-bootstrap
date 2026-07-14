@@ -1,6 +1,6 @@
 # C1 AEC Scalar Compiler: Project Charter and Acceptance Baseline
 
-This document is the long-term factual baseline for `Track-C/C1-compiler/`. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed on 2026-07-13 in `ephonic/Agentic4SystemSummerSchoolContest` at commit `68a4aea16e69045e397d12333244f7974245d49c`.
+This document is the long-term factual baseline for `Track-C/C1-compiler/`. Mutable implementation state lives in `docs/STATUS.md`. The active official baseline is the reduced C1 package observed on 2026-07-13 in `ephonic/Agentic4SystemSummerSchoolContest`; local C1 package files are LF-normalized text-content-equivalent to official `main` (dce818b, 2026-07-14). Raw blob hashes differ due to `.gitattributes` LF enforcement.
 
 ## 1. Mission
 
@@ -33,9 +33,10 @@ When facts conflict, use this order:
 
 1. Official `Track-C/C1-compiler/spec.md` and `Track-C/C1-compiler/scoring.md` at the currently observed official commit.
 2. Official public `testcases/*/kernel.ptx` and `manifest.json` in the same C1 package.
-3. Official `Track-C/hint.md` performance reference target parameters.
-4. Official organizer clarification messages, only when tied to the new package.
-5. This repository's documents, tests and temporary compatibility policies.
+3. Official `Track-C/C1-compiler/hint.md` performance reference target parameters.
+4. Official `Track-C/C1-compiler/aec-cmodel/` release docs and binaries for local CModel validation.
+5. Official organizer clarification messages, only when tied to the new package.
+6. This repository's documents, tests and temporary compatibility policies.
 
 Important superseded assumptions:
 
@@ -44,6 +45,7 @@ Important superseded assumptions:
 - C1 no longer requires TMUL, Tensor Load/Store, Tensor registers or low-precision FP4/FP8/INT4/BF16/FP16 GEMM support.
 - C1 no longer has an official Agent score. Agent code is optional internal tooling.
 - C1 Cycle Model will not be provided. Performance modeling is a participant-side responsibility.
+- Official `aec-precise` exposes a `steps` count; organizer clarification says performance measurement is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle model.
 
 ## 3. Repository and remote safety
 
@@ -98,7 +100,7 @@ Architecture constraints:
 - PTX `.param` maps to `.pmem` by official declaration-order and natural-alignment rules.
 - PTX `.u64/.b64` pointer values map to AEC register pairs; global memory uses the low 32-bit byte address under the official abstract-address rule.
 - Raw `.aecbin` writes each 128-bit instruction as four little-endian `uint32_t` words in `w0,w1,w2,w3` order.
-- Local simulator tests are bootstrap evidence only; official Golden Model evidence must be tracked separately once the ARM Golden Model is released.
+- Local simulator tests are bootstrap evidence only; official `aec-precise` evidence must be tracked separately.
 
 ## 6. Roadmap
 
@@ -153,7 +155,7 @@ For each milestone/sub-milestone:
 3. Keep production code independent from `tests/` and public testcase names.
 4. Run compileall, pytest, CLI smoke, report checks and `git diff --check`.
 5. Update `docs/STATUS.md` with exact passed/not-run evidence.
-6. Do not claim official Golden Model success until the released ARM Golden Model has actually been run.
+6. Do not claim official CModel success until released `aec-precise` has actually been run.
 
 ## 8. Final submission gate
 
@@ -165,5 +167,5 @@ Before claiming C1 readiness, the repository must demonstrate:
 - T1-T5 public categories have executable correctness evidence.
 - T2-T5 have non-case-specific optimization evidence aligned to the new score weights.
 - Robustness tests cover renaming, reordering, scale, address and GEMM-size variants.
-- Official ARM Golden Model evidence is recorded when available.
+- Official `aec-precise` evidence is recorded when available.
 - No stale claims remain for C1 Agent scoring, Cycle Model availability, Tensor ISA, low-precision GEMM or object-container `.aecbin` layout.

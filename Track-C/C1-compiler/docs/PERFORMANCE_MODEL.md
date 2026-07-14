@@ -4,7 +4,7 @@ This document records performance-model guidance for the active reduced C1 packa
 
 ## Official target parameters
 
-The official `Track-C/hint.md` file remains useful for constructing a participant-side performance model. A local machine-readable transcription is stored at:
+The official `Track-C/C1-compiler/hint.md` file remains useful for constructing a participant-side performance model. A local machine-readable transcription is stored at:
 
 ```text
 docs/performance_targets/track_c_hint_20260713.json
@@ -16,9 +16,11 @@ The official Platform A/B table includes per-SM register file, unified L1/Shared
 
 The reduced C1 package states that a Cycle Model will not be provided to participants. Teams should build their own performance model. Therefore this repository must not describe `cycle_model_metrics` as an expected official input for local development. Existing `cycle_model_metrics: null` report placeholders may remain as backward-compatible fields, but they are not an active official-data interface.
 
-C1 is still a CPU-executed compiler that emits AEC scalar machine code. The `Track-C/hint.md` guidance does not make CUDA, H200, PyTorch, `nvcc`, `ncu` or `nsys` dependencies of `compiler/aec-cc`.
+Organizer clarification says the official performance metric is closer to warp-level dynamic execution instruction/step count than to a latency-weighted cycle simulator. The released `aec-precise` CModel prints stdout JSON with `steps`; use that as the closest official local observation when available. Memory latency estimates from `hint.md` remain useful for optimization reasoning, but they should not be treated as the scoring metric itself.
 
-Auxiliary real-GPU profiling may be used outside the compiler to calibrate intuition, but such measurements are not official C1 Golden Model results and must be labeled as auxiliary.
+C1 is still a CPU-executed compiler that emits AEC scalar machine code. The `Track-C/C1-compiler/hint.md` guidance does not make CUDA, H200, PyTorch, `nvcc`, `ncu` or `nsys` dependencies of `compiler/aec-cc`.
+
+Auxiliary real-GPU profiling may be used outside the compiler to calibrate intuition, but such measurements are not official `aec-precise` CModel results and must be labeled as auxiliary.
 
 ## Model scope under the reduced package
 
@@ -26,7 +28,8 @@ The first useful C1 model should stay simple, serializable and conservative:
 
 | Dimension | Purpose | C1 use |
 |---|---|---|
-| Instruction count and mix | Approximate scalar execution pressure | Compare O2 pass candidates |
+| Dynamic step count | Closest released CModel observation for scoring pressure | Compare O2 pass candidates through `aec-precise` when runnable |
+| Static instruction count and mix | Approximate scalar execution pressure before running CModel | Compare O2 pass candidates |
 | Register and predicate count | Estimate pressure and allocation risk | Guide T4 work and avoid pass regressions |
 | Spill count | Track local-memory pressure once implemented | Reject transformations that create spill-heavy code |
 | Branch count | Estimate control overhead | Guide CFG simplification and loop lowering |

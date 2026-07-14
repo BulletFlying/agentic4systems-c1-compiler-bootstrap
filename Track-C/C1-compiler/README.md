@@ -4,7 +4,7 @@ This directory contains the current C1 PTX-to-AEC scalar compiler workspace. It 
 
 ## Active official baseline
 
-The active baseline is the reduced C1 package observed on 2026-07-13 in `ephonic/Agentic4SystemSummerSchoolContest` commit `68a4aea16e69045e397d12333244f7974245d49c`.
+The active baseline is the reduced C1 package in `ephonic/Agentic4SystemSummerSchoolContest`. Local `spec.md`, `scoring.md`, `hint.md`, `testcases/` and `aec-cmodel/` are aligned with current official `main` (dce818b, 2026-07-14). Text content is LF-normalized equivalent; raw blob hashes differ due to `.gitattributes` LF enforcement.
 
 Key changes from the earlier working plan:
 
@@ -17,8 +17,10 @@ Key changes from the earlier working plan:
 - T5 is FP32 scalar GEMM.
 - C1 no longer has an official Agent score.
 - Cycle Model will not be provided; performance modeling remains participant-side.
+- The released `aec-cmodel/` package provides `aec-precise-linux-x86_64` and `aec-precise-macos-arm64`; it reports `steps`, which the public CModel docs describe as a warp-level dynamic execution step count.
+- Organizer clarification says compile timeout remains 180 seconds, `compiler/aec-cc` may be a script/Python entry point, and the evaluation environment has `python3`.
 
-The root `spec.md` and `scoring.md` in this directory are now replaced with the reduced official versions. The public manifest-based package from the official archive is mirrored under `official_testcases/20260713/` for local alignment work. Legacy public PTX-01/PTX-02 regression fixtures remain separate and must not be treated as the active official package.
+The root `spec.md`, `scoring.md`, `hint.md`, and `testcases/` directory in this directory are now aligned with the reduced official C1 package. Legacy public PTX-01/PTX-02 regression fixtures live under `tests/fixtures/legacy_ptx/` and must not be treated as the active official package.
 
 See `docs/OFFICIAL_SCOPE_UPDATE_20260713.md` for the migration summary.
 
@@ -45,7 +47,8 @@ Repository context must be read from the repository rather than reconstructed fr
 
 - `spec.md`: active reduced official C1 language, AEC opcode, ABI and raw `.aecbin` specification.
 - `scoring.md`: active reduced official 50/40/10 C1 scoring model.
-- `official_testcases/20260713/`: mirrored public T1-T5 package from the reduced official archive.
+- `testcases/`: public T1-T5 package from the reduced official archive.
+- `aec-cmodel/`: official released `aec-precise` CModel binaries and command documentation.
 - `docs/OFFICIAL_SCOPE_UPDATE_20260713.md`: reduced official package summary and migration priorities.
 - `docs/C1_PROJECT_CHARTER.md`: mission, official scoring, architecture constraints, milestones and acceptance matrix.
 - `docs/PROJECT_OVERVIEW.md`: short project-level world model and source-of-truth map.
@@ -79,12 +82,12 @@ The checked-in compiler currently provides:
 
 ## Known gaps
 
-- New public T1-T5 package has been mirrored but not yet compile-smoked through `-O2`.
-- Parser/lowering coverage for the full new restricted PTX subset needs audit.
-- PMEM ABI and address ABI need explicit new-spec tests.
-- Manifest-aware compile/run harness is not implemented.
-- T3, T4 and T5 official-family implementations are not complete.
-- ARM Golden Model self-test integration is pending organizer release.
+- Official-path T1-T5 public package compiles and executes correctly via local simulator (`pytest -q tests/test_manifest_execution.py -m slow`; measured 5 passed in 3:30 on 2026-07-14; not part of default fast gate). Official `aec-precise` integration is not yet implemented in repository tests.
+- PMEM ABI has spec-conformant lowering and dedicated tests. Address ABI negative tests still needed.
+- Manifest-aware compile/run harness exists (`tests/official_harness.py`, stdlib-only).
+- T3 memory reuse and T4 register allocation optimizations are experimental (O3-only). O2 enables conservative DRE, BB-local CSE, local constant folding, and Global DCE.
+- T5 FP32 scalar GEMM compiles and executes correctly; GEMM-specific optimization (loop scheduling, register pressure) is not implemented.
+- Official `aec-precise` self-test integration is pending. The checked-in release currently contains macOS arm64 and Linux x86_64 binaries; organizer chat says the evaluation machine is ARM, but this package does not include a Linux ARM binary.
 - Optional Agent/controller work is no longer official-score critical.
 
 See `docs/STATUS.md` for the detailed debt register and next single main task.

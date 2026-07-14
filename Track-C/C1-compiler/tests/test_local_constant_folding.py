@@ -21,7 +21,7 @@ from aec_c1.passes import LocalConstantFoldingPass
 from aec_c1.ptx import PTXInstruction, parse_ptx
 
 
-PTX02 = ROOT / "testcases" / "PTX-02_invariant_poly.ptx"
+PTX02 = ROOT / "tests" / "fixtures" / "legacy_ptx" / "PTX-02_invariant_poly.ptx"
 PASS_NAME = "local-constant-folding"
 
 

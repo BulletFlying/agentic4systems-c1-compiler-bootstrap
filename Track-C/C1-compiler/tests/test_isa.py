@@ -5,6 +5,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+LEGACY_CASES = ROOT / "tests" / "fixtures" / "legacy_ptx"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
@@ -56,8 +57,28 @@ def test_encoder_decoder_field_round_trip() -> None:
         assert decode_words_to_instruction(encode_instruction(instruction)) == instruction
 
 
+def test_loadi64_encode_decode_roundtrip() -> None:
+    """LOADI64 must preserve full 64-bit immediates across encode→decode."""
+    for imm64 in (
+        0,
+        1,
+        0xFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
+        0xDEADBEEFCAFEBABE,
+        0x123456789ABCDEF0,
+    ):
+        inst = AECInstruction("LOADI64", dest=5, imm=imm64)
+        words = encode_instruction(inst)
+        decoded = decode_words_to_instruction(words)
+        assert decoded.opcode == "LOADI64", f"opcode mismatch for imm=0x{imm64:016x}"
+        assert decoded.dest == 5, f"dest mismatch for imm=0x{imm64:016x}"
+        assert decoded.imm == imm64, (
+            f"imm64 roundtrip failed: expected 0x{imm64:016x}, got 0x{decoded.imm:016x}"
+        )
+
+
 def test_public_ptx_01_lowers_to_raw_instructions() -> None:
-    ptx = (ROOT / "testcases/PTX-01_vector_add.ptx").read_text()
+    ptx = (LEGACY_CASES / "PTX-01_vector_add.ptx").read_text()
     lowered = compile_ptx(ptx)
     blob = instructions_to_bytes(lowered.instructions)
     assert len(blob) % 16 == 0
@@ -66,7 +87,7 @@ def test_public_ptx_01_lowers_to_raw_instructions() -> None:
 
 
 def test_public_ptx_01_boundary_branch_is_if_converted() -> None:
-    ptx = (ROOT / "testcases/PTX-01_vector_add.ptx").read_text()
+    ptx = (LEGACY_CASES / "PTX-01_vector_add.ptx").read_text()
     lowered = compile_ptx(ptx)
     assert "BRX" not in [inst.opcode for inst in lowered.instructions]
     assert any(inst.predicate == 1 and inst.predicate_negated for inst in lowered.instructions)
@@ -84,11 +105,34 @@ def test_public_ptx_01_random_differential_cases() -> None:
 
 
 def test_all_public_ptx_files_lower_to_raw_instructions() -> None:
-    for ptx_path in sorted((ROOT / "testcases").glob("PTX-*.ptx")):
+    for ptx_path in sorted(LEGACY_CASES.glob("PTX-*.ptx")):
         lowered = compile_ptx(ptx_path.read_text())
         blob = instructions_to_bytes(lowered.instructions)
         assert len(blob) % 16 == 0, ptx_path.name
         assert lowered.instructions[-1].opcode == "HALT", ptx_path.name
+
+
+def test_single_register_declarations_without_count_are_supported() -> None:
+    ptx = """
+.version 9.3
+.target sm_90
+.address_size 64
+.visible .entry one_reg(
+    .param .u32 param_n
+)
+{
+    .reg .pred %p;
+    .reg .u32 %r;
+    ld.param.u32 %r, [param_n];
+    setp.ge.u32 %p, %r, 1;
+    @%p bra DONE;
+DONE:
+    ret;
+}
+"""
+    lowered = compile_ptx(ptx)
+    assert lowered.instructions[-1].opcode == "HALT"
+    assert any(inst.opcode == "BRX" and inst.predicate == 0 for inst in lowered.instructions)
 
 
 def _assert_vector_add_case(n: int, seed: int) -> None:
@@ -113,7 +157,7 @@ def _assert_vector_add_case(n: int, seed: int) -> None:
         _write_u32(gmem, base_b + index * 4, b_value)
         gmem[base_c + index * 4 : base_c + index * 4 + 4] = sentinel
 
-    ptx = (ROOT / "testcases/PTX-01_vector_add.ptx").read_text()
+    ptx = (LEGACY_CASES / "PTX-01_vector_add.ptx").read_text()
     lowered = compile_ptx(ptx)
     pmem = bytearray(28)
     _write_u64(pmem, lowered.parameter_offsets["param_a"], base_a)

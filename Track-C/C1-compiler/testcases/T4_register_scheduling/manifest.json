@@ -1,7 +1,7 @@
 {
-  "name": "T3_repeated_global_load",
-  "category": "T3_memory_reuse",
-  "kernel": "repeated_global_load",
+  "name": "T4_mixed_load_compute",
+  "category": "T4_register_scheduling",
+  "kernel": "mixed_load_compute",
   "gridDim": [
     2048,
     1,
@@ -15,22 +15,28 @@
   "dynamic_smem_bytes": 0,
   "params": [
     {
-      "name": "param_x",
+      "name": "param_a",
       "type": "u64",
       "kind": "gmem_ptr",
-      "buffer": "x"
+      "buffer": "a"
     },
     {
-      "name": "param_y",
+      "name": "param_b",
       "type": "u64",
       "kind": "gmem_ptr",
-      "buffer": "y"
+      "buffer": "b"
     },
     {
-      "name": "param_z",
+      "name": "param_c",
       "type": "u64",
       "kind": "gmem_ptr",
-      "buffer": "z"
+      "buffer": "c"
+    },
+    {
+      "name": "param_d",
+      "type": "u64",
+      "kind": "gmem_ptr",
+      "buffer": "d"
     },
     {
       "name": "param_out",
@@ -46,23 +52,29 @@
     }
   ],
   "buffers": {
-    "x": {
+    "a": {
       "dtype": "f32",
       "numel": 524288,
       "init": "rand_uniform",
-      "seed": 5
+      "seed": 8
     },
-    "y": {
+    "b": {
       "dtype": "f32",
       "numel": 524288,
       "init": "rand_uniform",
-      "seed": 6
+      "seed": 9
     },
-    "z": {
+    "c": {
       "dtype": "f32",
       "numel": 524288,
       "init": "rand_uniform",
-      "seed": 7
+      "seed": 10
+    },
+    "d": {
+      "dtype": "f32",
+      "numel": 524288,
+      "init": "rand_uniform",
+      "seed": 11
     },
     "out": {
       "dtype": "f32",
@@ -73,7 +85,7 @@
   },
   "check": {
     "type": "elementwise",
-    "formula": "out[i] = x[i] * y[i] + x[i] * z[i]",
+    "formula": "out[i] = (a[i] + b[i]) * (c[i] - d[i]) + (a[i] * c[i]) * (b[i] + d[i])",
     "output": "out",
     "atol": 1e-05,
     "rtol": 1e-05

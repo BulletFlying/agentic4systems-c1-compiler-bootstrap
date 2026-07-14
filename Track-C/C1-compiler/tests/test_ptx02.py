@@ -9,13 +9,13 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aec_c1.analysis import Uniformity, analyze_uniformity
-from aec_c1.cfg import build_cfg
+from aec_c1.analysis.cfg import build_cfg
 from aec_c1.compiler import compile_ptx
 from aec_c1.ptx import parse_ptx
 from aec_c1.sim import TrackBSimulator, bits_to_f32, f32_to_bits
 
 
-PTX02 = ROOT / "testcases/PTX-02_invariant_poly.ptx"
+PTX02 = ROOT / "tests" / "fixtures" / "legacy_ptx" / "PTX-02_invariant_poly.ptx"
 
 
 def test_ptx02_cfg_identifies_loop_and_edges() -> None:
@@ -40,7 +40,10 @@ def test_ptx02_cfg_identifies_loop_and_edges() -> None:
     assert loop.fallthrough_successor != loop_block
 
     natural_loops = cfg.natural_loops()
-    assert any(natural_loop.header == loop_block and natural_loop.tail == loop_block for natural_loop in natural_loops)
+    loop = next(nl for nl in natural_loops if nl.header == loop_block and nl.tail == loop_block)
+    assert loop is not None
+    # Self-loop: natural loop body must contain ONLY the loop block itself
+    assert loop.blocks == {loop_block}, f"expected {{{loop_block}}}, got {loop.blocks}"
 
 
 def test_ptx02_uniformity_classifies_boundary_and_loop_branches() -> None:

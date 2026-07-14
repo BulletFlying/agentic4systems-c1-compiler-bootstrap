@@ -1,0 +1,6 @@
+Track-C/C1-compiler/spec.md text eol=lf
+Track-C/C1-compiler/scoring.md text eol=lf
+Track-C/C1-compiler/hint.md text eol=lf
+Track-C/C1-compiler/testcases/** text eol=lf
+Track-C/C1-compiler/aec-cmodel/*.md text eol=lf
+Track-C/C1-compiler/aec-cmodel/bin/* binary

@@ -4,7 +4,7 @@ This file is the mutable implementation ledger for `Track-C/C1-compiler/`. Long-
 
 ## Snapshot
 
-Status date: 2026-07-13
+Status date: 2026-07-14
 
 Writable repository: `BulletFlying/agentic4systems-c1-compiler-bootstrap`
 
@@ -12,25 +12,25 @@ Local Git remote policy: only `origin` pointing to `BulletFlying/agentic4systems
 
 Official repository remote: not configured
 
-Observed official C1 baseline: `ephonic/Agentic4SystemSummerSchoolContest` commit `68a4aea16e69045e397d12333244f7974245d49c`, including updated `Track-C/C1-compiler/spec.md`, `scoring.md` and manifest-based public testcase structure.
+Official C1 baseline: `ephonic/Agentic4SystemSummerSchoolContest`. Local `spec.md`/`scoring.md` text-content-equivalent (LF-normalized) to current official `main` (dce818b, 2026-07-14). Raw blob hashes differ due to .gitattributes LF enforcement.
 
 The reduced official package supersedes older assumptions: raw `.aecbin` stream is defined, PMEM ABI is defined, C1 Agent scoring is removed, C1 Cycle Model will not be provided, Tensor/TMUL/low-precision GEMM are not required, T5 is FP32 scalar GEMM, and evaluation uses `-O2`.
 
-Local repository alignment now records the active official package directly: root `spec.md` and `scoring.md` have been replaced with the reduced official versions, and the public manifest-based T1-T5 package is mirrored under `official_testcases/20260713/` without deleting legacy regression fixtures.
+Local repository alignment now records the active official package directly: root `spec.md`, `scoring.md`, `hint.md`, the public manifest-based T1-T5 package under `testcases/`, and released `aec-cmodel/` files match the reduced official package. Legacy PTX regression fixtures are retained under `tests/fixtures/legacy_ptx/`.
 
 ## Milestone state
 
 | Milestone | State | Evidence boundary |
 |---|---|---|
-| M0 ISA/CLI/encoder baseline | Locally complete, needs official-rescope audit | Raw encoder/decoder and smoke checks exist; must be audited against the new opcode/type/space table now copied into root `spec.md` |
-| M1/T1 basic lowering | Partially complete under old executable harness | New public T1 fixture is mirrored; parser/lowering and `-O2` compile/report smoke have not yet been proven on the new package |
-| M2.1 CFG/uniform-loop correctness | Locally complete under old PTX-02 shape | CFG, dominators, uniformity analysis and executable tests exist; must be revalidated on new T2 public package |
+| M0 ISA/CLI/encoder baseline | Complete | Raw encoder/decoder audited against official C1 opcode/type/space table; T1-T5 -O2 compile smoke passes |
+| M1/T1 basic lowering | Complete (local simulator, slow-test gate only) | All public T1-T5 manifests execute correctly via local simulator (`pytest -q tests/test_manifest_execution.py -m slow`, 5 passed in 3:30 on 2026-07-14; not in default `pytest`). Lowering covers or/xor/shl/fma/negated-branch. PMEM ABI tests pass. y/z special registers work. Official `aec-precise` not yet integrated into repository tests. |
+| M2.1 CFG/uniform-loop correctness | Locally complete | CFG, dominators, uniformity analysis and executable tests exist; T2 manifest executes correctly under local simulator |
 | M2.2 architecture foundation | Locally complete | IR facade, analysis manager, pass manager, reports, foundation pipelines, architecture guardrails and O0 binary fixtures exist |
-| M2.2 scalar optimization | In progress | O2/O3 include conservative DRE, basic-block-local CSE and basic-block-local constant folding; no general DCE, global CSE, LICM or block merge |
-| M3/T3 memory access optimization | Not started | New T3 public fixture is mirrored; no memory optimization pass or manifest-aware execution harness |
-| M4/T4 register allocation and scheduling | Not started | New T4 public fixture is mirrored; bootstrap allocation only |
-| M5/T5 FP32 scalar GEMM | Not started | New T5 public fixture is mirrored; no validated scalar GEMM lowering under new package |
-| Optional controller/tooling | Optional, not official scoring | Open Agent/controller work must be reviewed as development tooling only |
+| M2.2 scalar optimization | In progress / experimental | O2 enables conservative DRE, BB-local CSE, local constant folding, and worklist-based Global DCE. Global CP, LICM, block simplification, and repeated-load reuse are O3-only (experimental, known limitations). Manifest e2e correctness verified via local simulator only — not official `aec-precise`. |
+| M3/T3 memory access optimization | Experimental | RepeatedGlobalLoadReusePass (O3-only) eliminates duplicate loads but has known control-flow boundary gaps. No validated load hoisting or alias analysis. T3 passes under local simulator. |
+| M4/T4 register allocation and scheduling | Not started | T4 passes under bootstrap (next-register) allocator. Liveness analysis module scaffolded but not integrated into lowering. No linear-scan RA or scheduler. |
+| M5/T5 FP32 scalar GEMM | Not started | T5 passes local simulator (within FP32 tolerance, max error ~2.3e-05). No GEMM-specific loop scheduling, load/compute interleaving, or register-pressure optimization. |
+| Optional controller/tooling | Optional, not official scoring | Not an official scoring category |
 
 ## Current architecture
 
@@ -49,37 +49,46 @@ Implemented framework modules:
 
 `-O2` is now the official scoring-critical path. Local `-O0` remains useful as a regression baseline, but official evaluation uses `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json`.
 
-The current O2/O3 pass sequence includes `conservative-dead-result-elimination`, `basic-block-local-cse` and `local-constant-folding` before rebuilding CFG/uniformity facts and lowering from the pass-updated `module.function.program`.
+The scoring-critical O2 pipeline enables only passes with direct correctness evidence:
+1. Validation + conservative DRE + BB-local CSE + local constant folding
+2. CFG/uniformity rebuild
+3. Global DCE (worklist-based, multi-def aware)
+4. CFG/uniformity rebuild
 
-The scalar transforms remain local and conservative. They do not claim general DCE, global CSE, LICM, block merge, scheduling, register allocation, memory optimization or GEMM optimization.
+O3 adds experimental passes (RepeatedGlobalLoadReuse, GlobalCP, BlockSimplification, LICM) which have known correctness limitations and are NOT proven safe for scoring use.
+
+Current public T2 O2 smoke effect: official `testcases/T2_scalar_optimization` reduces from 37→35 AEC instructions (5.4%, 2 transforms). Legacy PTX-02 regression fixtures remain separate under `tests/fixtures/legacy_ptx/`.
 
 ## Official package alignment status
 
 Aligned in repository facts:
 
-- Root `spec.md` has been replaced with the reduced official PTX 9.3 scalar-subset and AEC opcode/binary/ABI specification.
-- Root `scoring.md` has been replaced with the reduced 50 correctness / 40 performance / 10 robustness scoring model.
+- Root `spec.md`, `scoring.md`, `hint.md`, `testcases/` and `aec-cmodel/` are LF-normalized text-content-equivalent to current official `main` (dce818b, 2026-07-14).
 - Agent scoring is removed from C1.
 - Tensor/TMUL/low-precision GEMM scope is removed from C1.
 - T5 is FP32 scalar GEMM.
 - Cycle Model will not be provided; participant-side performance model remains useful.
+- Official `aec-precise` CModel is present under `aec-cmodel/`; the public docs expose stdout JSON `steps` as a warp-level dynamic execution step count.
+- Organizer clarification: performance metric is closer to warp-level dynamic instruction/step count than a latency-weighted cycle model, compile timeout remains 180 seconds, Python/script entry points are allowed, and the evaluation environment has `python3`.
 - Raw `.aecbin` format and PMEM ABI are now defined in official `spec.md`.
-- Public T1-T5 package is mirrored at `official_testcases/20260713/` for local alignment work.
+- ld.param.u64/b64 lowered as two LD.pmem.u32 per spec §7.4.
+- Public T1-T5 package is present at the official path `testcases/`.
+- `-O2` compile/report smoke over all mirrored public T1-T5 kernels: `tests/test_official_package.py`.
+- Manifest-aware local execution harness: `tests/official_harness.py` (stdlib-only); e2e tests gated behind `@pytest.mark.slow`.
 
 Not yet aligned in implementation:
 
-- Manifest-aware local compile/run harness.
-- `-O2` compile/report smoke over all mirrored public T1-T5 kernels.
-- Full official PTX subset coverage for `.b32/.b64/.s32`, `or.b32`, `xor.b32`, `shl.b32`, `mul.lo.u32`, `mad.lo.u32`, `mad.rn.f32`, `fma.rn.f32`, negated branch handling and every x/y/z special-register form under the new package.
-- PMEM ABI tests for declaration order, natural alignment and 8-byte block alignment.
-- Address ABI tests for 64-bit PTX pointers lowered to the low 32-bit AEC abstract address rule.
-- Public T1-T5 executable validation.
-- ARM Golden Model self-test integration once organizers release the binary.
+- Address ABI tests for 64-bit PTX pointers lowered to the low 32-bit AEC abstract address rule (dedicated negative tests needed).
+- Official `aec-precise` self-test integration. Current release includes macOS arm64 and Linux x86_64 binaries; organizer chat says evaluation machine is ARM, but this release package does not include Linux ARM.
+- Linear-scan register allocation (liveness analysis module exists, not yet integrated into lowering).
+- Load hoisting (loop-invariant loads moved out of loops).
+- GEMM-specific loop scheduling and register pressure optimization.
+- Performance model integration with pass pipeline feedback.
 
 ## Performance-model status
 
 - `docs/PERFORMANCE_MODEL.md` is updated to the reduced package: no participant Cycle Model, no Tensor model requirement, no official Agent loop requirement.
-- `docs/performance_targets/track_c_hint_20260713.json` remains a local transcription of official `Track-C/hint.md` target parameters.
+- `docs/performance_targets/track_c_hint_20260713.json` remains a local transcription of official `Track-C/C1-compiler/hint.md` target parameters.
 - Compile reports should converge toward the new official diagnostic fields: instruction/register/predicate/spill/branch/load/store counts, memory-instruction ratio and dependency-depth estimates.
 - Missing estimates or official measurements must be represented as unavailable or `null`; they must not be fabricated.
 
@@ -93,6 +102,7 @@ Not yet aligned in implementation:
 4. Uniformity analysis still has source-order limitations and must evolve toward CFG fixed-point dataflow before arbitrary block transformations.
 5. New optimization functionality must not expand `compiler.py`; ownership belongs to IR, analysis, passes and lowering boundaries.
 6. Conservative dead-result elimination uses a whole-program read set rather than SSA/liveness. This is intentionally safe but leaves many removable definitions in place.
+7. `passes/scalar.py` is now an aggregation point for local scalar passes plus experimental global passes. Before adding another optimization, split it into focused pass modules so review does not degrade into a single large pass file.
 
 ### Medium priority
 
@@ -114,21 +124,21 @@ Resolved or changed by the reduced package:
 
 Still unresolved or pending:
 
-- ARM AEC Golden Model release and exact local invocation contract.
+- Official Linux ARM CModel availability for reproducing the stated ARM evaluation host locally.
 - Official baseline performance numbers are not public; evaluation compares against an internal baseline compiler.
-- Official machine-readable schema for `Track-C/hint.md` target parameters does not exist; current local JSON is a project transcription.
+- Official machine-readable schema for `Track-C/C1-compiler/hint.md` target parameters does not exist; current local JSON is a project transcription.
 
 ## Verification boundary
 
-Local completion does not mean official Golden Model or grader approval. Once the ARM Golden Model is released, every correctness claim must say whether it was not run, failed, or passed with exact command evidence.
+Local completion does not mean official CModel or grader approval. Every correctness claim must say whether official `aec-precise` was not run, failed, or passed with exact command evidence.
 
 ## Next single main task
 
-Official package implementation alignment before more optional tooling:
+Prove correctness of experimental passes before promoting them to O2:
 
-1. Add a manifest-aware compile-smoke harness over `official_testcases/20260713/*/kernel.ptx`.
-2. Run the harness through `compiler/aec-cc kernel.ptx -O2 -o output.aecbin --report compile_report.json` and record exact failures.
-3. Fix parser/lowering gaps in scoring order, starting with public T1/T2 coverage.
-4. Add PMEM ABI and address ABI tests tied directly to the new root `spec.md`.
-5. Integrate the ARM Golden Model as soon as it is released.
-6. Only after T1/T2 public package correctness is restored, resume T3 memory optimization planning.
+1. Write negative/mutation tests for RepeatedGlobalLoadReusePass (control-flow boundaries, aliasing).
+2. Fix GlobalConstantPropagationPass to reset constants at unlabeled CFG boundaries.
+3. Fix LICM to verify dominance/single-definition safety before hoisting.
+4. After each pass has standalone correctness evidence, promote one pass at a time to O2.
+5. Official `aec-precise` integration using `aec-cmodel/PUBLIC_AEC_PRECISE_COMMANDS.md`.
+6. Linear-scan register allocation (liveness module scaffolded).

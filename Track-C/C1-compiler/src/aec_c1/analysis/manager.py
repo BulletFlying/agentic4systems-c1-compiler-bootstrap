@@ -7,6 +7,7 @@ from typing import Any
 
 from ..ir import IRModule
 from .cfg import build_cfg
+from .liveness import analyze_liveness
 from .uniformity import analyze_uniformity
 
 
@@ -53,6 +54,7 @@ def build_default_analysis_manager(module: IRModule) -> AnalysisManager:
         module,
         {
             "cfg": lambda current: build_cfg(current.function.program),
+            "liveness": lambda current: analyze_liveness(current.function.program),
             "uniformity": lambda current: analyze_uniformity(current.function.program),
         },
     )
