@@ -10,7 +10,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.objdump import main
+from aec_compiler.objdump import main
 
 
 if __name__ == "__main__":

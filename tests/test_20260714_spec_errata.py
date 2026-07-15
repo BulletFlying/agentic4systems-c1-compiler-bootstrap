@@ -7,8 +7,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.compiler import compile_ptx
-from aec_c1.isa import decode_words_to_instruction, encode_instruction
+from aec_compiler.compiler import compile_ptx
+from aec_compiler.isa import decode_words_to_instruction, encode_instruction
 
 
 def test_shl_b32_encodes_as_shl_u32_per_20260714_erratum() -> None:

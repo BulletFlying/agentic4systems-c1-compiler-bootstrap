@@ -29,10 +29,10 @@ import sys
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.compiler import compile_ptx_detailed
-from aec_c1.isa import TRACK_B_V1
-from aec_c1.legacy_lowering import TYPE_SIZE
-from aec_c1.sim import MASK32, TrackBSimulator, bits_to_f32, f32_to_bits
+from aec_compiler.compiler import compile_ptx_detailed
+from aec_compiler.isa import TRACK_B_V1
+from aec_compiler.legacy_lowering import TYPE_SIZE
+from aec_compiler.sim import MASK32, TrackBSimulator, bits_to_f32, f32_to_bits
 
 
 # ---------------------------------------------------------------------------

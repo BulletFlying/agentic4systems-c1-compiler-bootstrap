@@ -2,9 +2,9 @@
 """Command line entry point for the C1 AEC compiler.
 
 Submission layout (TrackC-.../C1/compiler/):
-    aec-cc  →  src/aec_c1/
+    aec-cc  →  src/aec_compiler/
 Development layout (repo root):
-    compiler/aec-cc  →  src/aec_c1/
+    compiler/aec-cc  →  src/aec_compiler/
 """
 
 from pathlib import Path
@@ -21,7 +21,7 @@ if not SRC.is_dir():
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.compiler import main
+from aec_compiler.compiler import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

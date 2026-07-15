@@ -29,9 +29,9 @@ CMODEL_DIR = ROOT / "aec-cmodel" / "bin"
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from aec_c1.compiler import compile_ptx_detailed
-from aec_c1.isa import C1_DEFAULT, instructions_to_bytes
-from aec_c1.legacy_lowering import TYPE_SIZE
+from aec_compiler.compiler import compile_ptx_detailed
+from aec_compiler.isa import C1_DEFAULT, instructions_to_bytes
+from aec_compiler.legacy_lowering import TYPE_SIZE
 
 # ---------------------------------------------------------------------------
 # Platform detection

@@ -12,10 +12,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import build_default_analysis_manager
-from aec_c1.ir import module_from_program
-from aec_c1.passes.gemm import LoopUnrollingPass
-from aec_c1.ptx import PTXInstruction, PTXProgram
+from aec_compiler.analysis import build_default_analysis_manager
+from aec_compiler.ir import module_from_program
+from aec_compiler.passes.gemm import LoopUnrollingPass
+from aec_compiler.ptx import PTXInstruction, PTXProgram
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ class TestGEMMSizes:
         # Just verify it compiles through the pass pipeline
         module = module_from_program("<test>", prog)
         analyses = build_default_analysis_manager(module)
-        from aec_c1.passes import build_pipeline
+        from aec_compiler.passes import build_pipeline
         pipeline = build_pipeline("2")
         records = pipeline.run(module, analyses)
         assert len(records) > 0
@@ -316,7 +316,7 @@ class TestGEMMSizes:
         prog = self._build_gemm_program(128, 128, 128)
         module = module_from_program("<test>", prog)
         analyses = build_default_analysis_manager(module)
-        from aec_c1.passes import build_pipeline
+        from aec_compiler.passes import build_pipeline
         pipeline = build_pipeline("2")
         records = pipeline.run(module, analyses)
         assert len(records) > 0
@@ -326,7 +326,7 @@ class TestGEMMSizes:
         prog = self._build_gemm_program(256, 256, 256)
         module = module_from_program("<test>", prog)
         analyses = build_default_analysis_manager(module)
-        from aec_c1.passes import build_pipeline
+        from aec_compiler.passes import build_pipeline
         pipeline = build_pipeline("2")
         records = pipeline.run(module, analyses)
         assert len(records) > 0
@@ -336,7 +336,7 @@ class TestGEMMSizes:
         prog = self._build_gemm_program(128, 64, 256)
         module = module_from_program("<test>", prog)
         analyses = build_default_analysis_manager(module)
-        from aec_c1.passes import build_pipeline
+        from aec_compiler.passes import build_pipeline
         pipeline = build_pipeline("2")
         records = pipeline.run(module, analyses)
         assert len(records) > 0

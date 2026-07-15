@@ -1,6 +1,6 @@
-name: C1 module or milestone change
+name: Module or milestone change
 description: Plan a new compiler module, material refactor, pass, backend feature, test gate, or infrastructure change.
-title: "[C1] "
+title: ""
 labels: []
 body:
   - type: dropdown
@@ -17,7 +17,6 @@ body:
         - Register allocation or scheduling
         - ISA or object format
         - Simulator or validation
-        - Agent
         - Documentation or infrastructure
     validations:
       required: true
@@ -25,7 +24,7 @@ body:
     id: milestone
     attributes:
       label: Milestone
-      description: M0, M1, M2.1, M2.2, M3, M4, M5, M6, or infrastructure.
+      description: Phase 0-5 from docs/ROADMAP.md, or infrastructure.
     validations:
       required: true
   - type: textarea
@@ -66,7 +65,7 @@ body:
   - type: textarea
     id: generalization
     attributes:
-      label: Hidden-test generalization
+      label: Generalization
       description: Explain behavior under register/label rename, parameter/loop/shape variation, block reorder, dead code and pressure changes as applicable.
     validations:
       required: true
@@ -82,11 +81,7 @@ body:
     attributes:
       label: Repository safety
       options:
-        - label: Work will be written only to BulletFlying/agentic4systems-c1-compiler-bootstrap.
-          required: true
-        - label: The official ephonic repository will not be configured as a Git remote or write target.
-          required: true
         - label: No case ID, file name, hash, fixed label or fixed register number will be used as a semantic trigger.
           required: true
-        - label: Unavailable official validation will be reported as Not run.
+        - label: Work will be written only to the project repository.
           required: true

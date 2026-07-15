@@ -12,10 +12,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import build_default_analysis_manager
-from aec_c1.ir import module_from_program
-from aec_c1.passes.memory import LoadHoistingPass
-from aec_c1.ptx import PTXInstruction, PTXProgram
+from aec_compiler.analysis import build_default_analysis_manager
+from aec_compiler.ir import module_from_program
+from aec_compiler.passes.memory import LoadHoistingPass
+from aec_compiler.ptx import PTXInstruction, PTXProgram
 
 
 # ---------------------------------------------------------------------------

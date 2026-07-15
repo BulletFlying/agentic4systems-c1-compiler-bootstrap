@@ -9,10 +9,10 @@ LEGACY_CASES = ROOT / "tests" / "fixtures" / "legacy_ptx"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.compiler import compile_ptx
-from aec_c1.isa import AECInstruction, C1_DEFAULT, TRACK_B_V1, decode_words_to_instruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
-from aec_c1.objdump import disassemble
-from aec_c1.sim import TrackBSimulator, bits_to_f32, f32_to_bits
+from aec_compiler.compiler import compile_ptx
+from aec_compiler.isa import AECInstruction, C1_DEFAULT, TRACK_B_V1, decode_words_to_instruction, encode_instruction, instructions_to_bytes, words_to_msb_hex
+from aec_compiler.objdump import disassemble
+from aec_compiler.sim import TrackBSimulator, bits_to_f32, f32_to_bits
 
 
 def test_track_b_abi_smoke_encoding_matches_public_hex() -> None:
@@ -81,7 +81,7 @@ def test_loadi64_encode_decode_roundtrip() -> None:
 
 def test_c1_default_profile_rejects_non_c1_opcodes() -> None:
     """Default scoring profile (c1_default) must reject opcodes/types outside C1 spec §4-§5."""
-    from aec_c1.isa import C1_DEFAULT, EncodeError
+    from aec_compiler.isa import C1_DEFAULT, EncodeError
     import pytest as _pytest
 
     # Non-C1 opcodes must be rejected
@@ -120,9 +120,9 @@ def test_c1_default_profile_rejects_non_c1_opcodes() -> None:
 
 def test_mov_u64_b64_immediate_uses_loadi64() -> None:
     """mov.u64/mov.b64 with immediate operands must emit LOADI64, not LOADI."""
-    from aec_c1.legacy_lowering import Lowerer
-    from aec_c1.ptx import parse_ptx
-    from aec_c1.isa import C1_DEFAULT
+    from aec_compiler.legacy_lowering import Lowerer
+    from aec_compiler.ptx import parse_ptx
+    from aec_compiler.isa import C1_DEFAULT
 
     for ptx_type, imm_val in [("u64", 0xDEADBEEFCAFEBABE), ("b64", 0x123456789ABCDEF0)]:
         text = f"""\

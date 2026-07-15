@@ -16,8 +16,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.legacy_lowering import TYPE_SIZE, layout_parameters  # noqa: E402
-from aec_c1.ptx import Parameter, PTXProgram  # noqa: E402
+from aec_compiler.legacy_lowering import TYPE_SIZE, layout_parameters  # noqa: E402
+from aec_compiler.ptx import Parameter, PTXProgram  # noqa: E402
 
 
 def _make_program(params: list[tuple[str, str]]) -> PTXProgram:

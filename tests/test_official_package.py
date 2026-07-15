@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.compiler import main
+from aec_compiler.compiler import main
 
 
 OFFICIAL_CASE_ROOT = ROOT / "testcases"

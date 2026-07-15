@@ -1,11 +1,4 @@
-Track-C/C1-compiler/spec.md text eol=lf
-Track-C/C1-compiler/scoring.md text eol=lf
-Track-C/C1-compiler/hint.md text eol=lf
-Track-C/C1-compiler/testcases/** text eol=lf
-Track-C/C1-compiler/aec-cmodel/*.md text eol=lf
-Track-C/C1-compiler/aec-cmodel/bin/* binary
-
-# Linux evaluation env — entry point + source must use LF
+# Source, docs, config — LF line endings for cross-platform compatibility
 compiler/aec-cc text eol=lf
 src/**/*.py text eol=lf
 tests/**/*.py text eol=lf
@@ -14,3 +7,6 @@ testcases/**/*.json text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
 *.ini text eol=lf
+
+# Binary files
+aec-cmodel/bin/* binary

@@ -13,12 +13,12 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import AnalysisManager
-from aec_c1.compiler import compile_ptx, compile_ptx_detailed
-from aec_c1.ir import module_from_program
-from aec_c1.isa import TRACK_B_V1, instructions_to_bytes
-from aec_c1.passes import LocalConstantFoldingPass
-from aec_c1.ptx import PTXInstruction, parse_ptx
+from aec_compiler.analysis import AnalysisManager
+from aec_compiler.compiler import compile_ptx, compile_ptx_detailed
+from aec_compiler.ir import module_from_program
+from aec_compiler.isa import TRACK_B_V1, instructions_to_bytes
+from aec_compiler.passes import LocalConstantFoldingPass
+from aec_compiler.ptx import PTXInstruction, parse_ptx
 
 
 PTX02 = ROOT / "tests" / "fixtures" / "legacy_ptx" / "PTX-02_invariant_poly.ptx"

@@ -12,14 +12,14 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import build_default_analysis_manager
-from aec_c1.compiler import compile_ptx_detailed
-from aec_c1.ir import module_from_program
-from aec_c1.isa import TRACK_B_V1
-from aec_c1.legacy_lowering import Lowerer
-from aec_c1.passes.register_allocation import LinearScanRegisterAllocationPass
-from aec_c1.passes.scheduler import ListSchedulerPass, _schedule_block
-from aec_c1.ptx import PTXInstruction, PTXProgram
+from aec_compiler.analysis import build_default_analysis_manager
+from aec_compiler.compiler import compile_ptx_detailed
+from aec_compiler.ir import module_from_program
+from aec_compiler.isa import TRACK_B_V1
+from aec_compiler.legacy_lowering import Lowerer
+from aec_compiler.passes.register_allocation import LinearScanRegisterAllocationPass
+from aec_compiler.passes.scheduler import _schedule_block
+from aec_compiler.ptx import PTXInstruction, PTXProgram
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class TestScheduler:
     def test_scheduler_preserves_data_dependencies(self) -> None:
         """An instruction that consumes a register must not be scheduled
         before the instruction that defines it (RAW dependency)."""
-        from aec_c1.isa import AECInstruction
+        from aec_compiler.isa import AECInstruction
 
         insts = [
             AECInstruction(opcode="ADD", dest=1, src1=2, src2=3),
@@ -182,7 +182,7 @@ class TestScheduler:
 
     def test_scheduler_preserves_memory_order(self) -> None:
         """Two ST instructions must maintain their relative order."""
-        from aec_c1.isa import AECInstruction
+        from aec_compiler.isa import AECInstruction
 
         insts = [
             AECInstruction(opcode="ST", src1=1, src2=0, imm=100),
@@ -195,7 +195,7 @@ class TestScheduler:
 
     def test_scheduler_keeps_branch_at_block_end(self) -> None:
         """Control-flow instructions must remain at the end of the block."""
-        from aec_c1.isa import AECInstruction
+        from aec_compiler.isa import AECInstruction
 
         insts = [
             AECInstruction(opcode="ADD", dest=1, src1=2, src2=3),
@@ -212,7 +212,7 @@ class TestScheduler:
 
     def test_scheduler_deterministic(self) -> None:
         """Same input must produce the same output on two calls."""
-        from aec_c1.isa import AECInstruction
+        from aec_compiler.isa import AECInstruction
 
         insts = [
             AECInstruction(opcode="LD", dest=1, src1=2, src2=0, imm=0),
@@ -227,7 +227,7 @@ class TestScheduler:
     def test_scheduler_never_moves_instruction_before_its_operands(self) -> None:
         """No instruction may be scheduled before all its source operands
         are defined."""
-        from aec_c1.isa import AECInstruction
+        from aec_compiler.isa import AECInstruction
 
         insts = [
             AECInstruction(opcode="MOV", dest=10, src1=0, src2=0),

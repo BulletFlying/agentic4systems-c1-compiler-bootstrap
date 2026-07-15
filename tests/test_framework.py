@@ -14,13 +14,13 @@ LEGACY_CASES = ROOT / "tests" / "fixtures" / "legacy_ptx"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import AnalysisManager
-from aec_c1.compiler import compile_ptx, compile_ptx_detailed, main
-from aec_c1.ir import module_from_program
-from aec_c1.isa import C1_DEFAULT, TRACK_B_V1, instructions_to_bytes
-from aec_c1.legacy_lowering import Lowerer
-from aec_c1.passes import PassManager, PassResult
-from aec_c1.ptx import parse_ptx
+from aec_compiler.analysis import AnalysisManager
+from aec_compiler.compiler import compile_ptx, compile_ptx_detailed, main
+from aec_compiler.ir import module_from_program
+from aec_compiler.isa import C1_DEFAULT, TRACK_B_V1, instructions_to_bytes
+from aec_compiler.legacy_lowering import Lowerer
+from aec_compiler.passes import PassManager, PassResult
+from aec_compiler.ptx import parse_ptx
 
 
 def _load_ptx(name: str) -> str:

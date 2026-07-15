@@ -1,4 +1,4 @@
-name: C1 compiler tests
+name: Compiler tests
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
       - "tests/**"
       - "testcases/**"
       - "disassembler/**"
-      - "agent/**"
       - "aec-cmodel/**"
       - "docs/**"
       - "*.md"
@@ -22,7 +21,6 @@ on:
       - "tests/**"
       - "testcases/**"
       - "disassembler/**"
-      - "agent/**"
       - "aec-cmodel/**"
       - "docs/**"
       - "*.md"
@@ -47,10 +45,10 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
       - name: Compile Python sources
-        run: python -m compileall -q src compiler disassembler agent tests
-      - name: Run full C1 test suite
+        run: python -m compileall -q src compiler disassembler tests
+      - name: Run full test suite
         run: python -m pytest -q tests
-      - name: PTX-02 CLI and objdump smoke
+      - name: CLI and objdump smoke
         run: |
           tmpdir="$(mktemp -d)"
           python compiler/aec-cc testcases/T2_scalar_optimization/kernel.ptx -O2 -o "$tmpdir/T2.aecbin" --report "$tmpdir/T2.json"

@@ -8,11 +8,11 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aec_c1.analysis import Uniformity, analyze_uniformity
-from aec_c1.analysis.cfg import build_cfg
-from aec_c1.compiler import compile_ptx
-from aec_c1.ptx import parse_ptx
-from aec_c1.sim import TrackBSimulator, bits_to_f32, f32_to_bits
+from aec_compiler.analysis import Uniformity, analyze_uniformity
+from aec_compiler.analysis.cfg import build_cfg
+from aec_compiler.compiler import compile_ptx
+from aec_compiler.ptx import parse_ptx
+from aec_compiler.sim import TrackBSimulator, bits_to_f32, f32_to_bits
 
 
 PTX02 = ROOT / "tests" / "fixtures" / "legacy_ptx" / "PTX-02_invariant_poly.ptx"

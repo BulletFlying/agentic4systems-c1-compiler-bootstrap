@@ -6,7 +6,7 @@ import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "aec_c1"
+SRC = ROOT / "src" / "aec_compiler"
 
 CORE_SEMANTIC_PATHS = (
     SRC / "compiler.py",
@@ -18,9 +18,9 @@ CORE_SEMANTIC_DIRS = (
     SRC / "passes",
 )
 FORBIDDEN_ANALYSIS_IMPORTS = {
-    "aec_c1.compiler",
-    "aec_c1.isa",
-    "aec_c1.legacy_lowering",
+    "aec_compiler.compiler",
+    "aec_compiler.isa",
+    "aec_compiler.legacy_lowering",
 }
 FORBIDDEN_COMPILER_CLASSES = {"ControlPlan", "Lowerer", "RegisterAllocator"}
 FORBIDDEN_COMPILER_TRANSFORMS = {
@@ -172,7 +172,7 @@ def _resolve_import_from(path: Path, node: ast.ImportFrom) -> str:
         return node.module or ""
 
     relative_parent = path.relative_to(SRC).parent.parts
-    package = ["aec_c1", *relative_parent]
+    package = ["aec_compiler", *relative_parent]
     levels_up = node.level - 1
     if levels_up:
         package = package[:-levels_up]
@@ -246,6 +246,9 @@ def test_pass_classes_expose_standard_run_contract() -> None:
             ]
             assert len(run_methods) == 1, f"{node.name} must define exactly one run method in {path}"
             positional = [argument.arg for argument in run_methods[0].args.posonlyargs + run_methods[0].args.args]
-            assert positional[:3] == ["self", "module", "analyses"], (
-                f"{node.name}.run must begin with (self, module, analyses), got {positional} in {path}"
+            assert positional[:2] == ["self", "module"], (
+                f"{node.name}.run must begin with (self, module, ...), got {positional} in {path}"
+            )
+            assert positional[2] in {"analyses", "_analyses"}, (
+                f"{node.name}.run third parameter must be 'analyses' or '_analyses', got {positional[2]!r} in {path}"
             )
