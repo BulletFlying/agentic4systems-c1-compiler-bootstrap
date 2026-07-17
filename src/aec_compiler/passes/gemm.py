@@ -310,21 +310,24 @@ def _rename_instruction_safe(
 
 
 def _fresh_name_safe(rname: str, rename_map: dict[str, str], used_nums: set[int]) -> str | None:
-    """Generate a fresh register name that doesn't conflict with existing ones.
+    """Generate a fresh virtual register name that doesn't conflict with
+    already-used names anywhere in the program.
 
-    Returns None when no safe slot is available — the caller must skip the
-    entire unroll rather than risking a register conflict.
+    The search is monotonic upward from `num + 50` to 255 — it never wraps
+    to low register numbers.  When no free slot exists in [num+50, 255],
+    the function returns None and the caller skips the unroll entirely.
+
+    Virtual register names (e.g. %r52) are just symbolic identifiers in the
+    PTX domain; the register allocator later maps them to physical GPRs.
     """
     m = _REG_NUM_RE.match(rname)
     if not m:
         return None
     base = rname[:m.start(1)]
     num = int(m.group(1))
-    # Start at num+50, wrapping through the full 0-255 register space.
-    # Only return a name if it is in-bounds AND not already used.
-    start = (num + 50) % 256
-    for offset in range(256):
-        candidate = (start + offset) % 256
+    candidate = num + 50
+    while candidate <= 255:
         if candidate not in used_nums:
             return f"{base}{candidate}"
-    return None  # all 256 register numbers are consumed — no safe slot
+        candidate += 1
+    return None  # no safe slot in the monotonic range — skip unroll

@@ -8,6 +8,7 @@ raises on unsupported PTX rather than guessing.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from pathlib import Path
 import re
 
 from .analysis import Uniformity, UniformityFacts, analyze_uniformity
