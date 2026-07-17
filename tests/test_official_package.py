@@ -41,8 +41,8 @@ def _git_blob_sha1(path: Path) -> str | None:
             text=True,
             check=True,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, OSError):
-        return None
+    except FileNotFoundError:
+        return None  # git not installed — cannot compute blob SHA-1
     return result.stdout.strip()
 
 

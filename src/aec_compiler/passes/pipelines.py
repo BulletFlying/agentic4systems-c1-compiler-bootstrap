@@ -89,6 +89,13 @@ def build_pipeline(opt_level: str) -> PassManager:
             LocalConstantFoldingPass,
             GlobalConstantPropagationPass,
             RepeatedGlobalLoadReusePass,
+            GlobalDeadCodeEliminationPass,
+            RecordLoopAnalysisPass,
+            LoopInvariantCodeMotionPass,
+            BlockSimplificationPass,
+            LoadHoistingPass,
+            LoopUnrollingPass,
+            LinearScanRegisterAllocationPass,
         }
         o3_base = [
             ValidateProgramPass(),

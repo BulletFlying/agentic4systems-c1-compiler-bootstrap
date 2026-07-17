@@ -320,15 +320,11 @@ def _fresh_name_safe(rname: str, rename_map: dict[str, str], used_nums: set[int]
         return None
     base = rname[:m.start(1)]
     num = int(m.group(1))
-    # Find a number that doesn't conflict with used registers
-    new_num = num + 50  # large offset to avoid collision with source registers
-    max_attempts = 256  # safety cap — register file has 256 entries
-    attempts = 0
-    while new_num in used_nums and attempts < max_attempts:
-        new_num += 1
-        if new_num > 255:
-            new_num = (new_num % 256)  # wrap to avoid stalling at 255
-        attempts += 1
-    if attempts >= max_attempts:
-        return None  # no safe slot found — signal the caller to abort unroll
-    return f"{base}{new_num}"
+    # Start at num+50, wrapping through the full 0-255 register space.
+    # Only return a name if it is in-bounds AND not already used.
+    start = (num + 50) % 256
+    for offset in range(256):
+        candidate = (start + offset) % 256
+        if candidate not in used_nums:
+            return f"{base}{candidate}"
+    return None  # all 256 register numbers are consumed — no safe slot

@@ -7,15 +7,12 @@ raises on unsupported PTX rather than guessing.
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass, replace
-from pathlib import Path
 import re
-import sys
 
 from .analysis import Uniformity, UniformityFacts, analyze_uniformity
 from .analysis.cfg import CFG, CFGError, build_cfg
-from .isa import AECInstruction, C1_DEFAULT, PROFILES, TRACK_B_V1, ISAProfile, instructions_to_bytes
+from .isa import AECInstruction, C1_DEFAULT, TRACK_B_V1, ISAProfile, instructions_to_bytes
 from .ptx import PTXInstruction, PTXProgram, parse_ptx
 
 
