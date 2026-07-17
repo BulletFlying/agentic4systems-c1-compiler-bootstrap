@@ -57,6 +57,42 @@ def test_ptx02_uniformity_classifies_boundary_and_loop_branches() -> None:
     assert branch_by_target["LOOP"].result == "proven_uniform"
 
 
+def test_uniformity_propagates_all_lowered_pure_ops() -> None:
+    program = parse_ptx("""
+.version 9.3
+.target sm_90
+.address_size 64
+.visible .entry uniform_ops(
+    .param .u32 param_n
+)
+{
+    .reg .pred %p<2>;
+    .reg .u32 %r<5>;
+    .reg .f32 %f<3>;
+    ld.param.u32 %r0, [param_n];
+    mov.u32 %r1, 1;
+    shl.b32 %r2, %r1, 1;
+    xor.b32 %r3, %r2, %r1;
+    or.b32 %r4, %r3, %r2;
+    mov.f32 %f0, 0f3f800000;
+    fma.rn.f32 %f1, %f0, %f0, %f0;
+    setp.eq.u32 %p0, %r4, %r4;
+    @%p0 bra DONE;
+DONE:
+    ret;
+}
+""")
+
+    facts = analyze_uniformity(program)
+    branch_by_target = _branch_states_by_target(program, facts.branch_states)
+
+    assert facts.final_values["%r2"] is Uniformity.UNIFORM
+    assert facts.final_values["%r3"] is Uniformity.UNIFORM
+    assert facts.final_values["%r4"] is Uniformity.UNIFORM
+    assert facts.final_values["%f1"] is Uniformity.UNIFORM
+    assert branch_by_target["DONE"].state is Uniformity.UNIFORM
+
+
 def test_ptx02_generated_code_uses_only_uniform_loop_brx() -> None:
     lowered = compile_ptx(PTX02.read_text())
     brx_indices = [index for index, inst in enumerate(lowered.instructions) if inst.opcode == "BRX"]

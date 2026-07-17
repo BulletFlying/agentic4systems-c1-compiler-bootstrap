@@ -158,6 +158,24 @@ class TestLinearScanRA:
         assert isinstance(mapping, dict)
         # Most registers should be allocated (though the chain pattern reuses well)
 
+    def test_lowerer_fallback_does_not_reuse_pre_mapped_register(self) -> None:
+        """Fallback allocation after linear-scan RA must reserve pre-mapped slots."""
+        prog = _make_simple_program([
+            _i("mov.u32", "%r1", "10"),
+            _i("mov.u32", "%r2", "20"),
+            _i("add.u32", "%r3", "%r1", "%r2"),
+            _i("ret"),
+        ])
+
+        lowered = Lowerer(prog, register_mapping={"%r1": 1}).lower()
+
+        imm_loads = [inst for inst in lowered.instructions if inst.opcode == "LOADI"]
+        assert imm_loads[0].dest == 1
+        assert imm_loads[1].dest != 1
+        add = next(inst for inst in lowered.instructions if inst.opcode == "ADD")
+        assert add.src1 == 1
+        assert add.src2 == imm_loads[1].dest
+
 
 # ---------------------------------------------------------------------------
 # Scheduler tests
@@ -239,3 +257,34 @@ class TestScheduler:
         positions = {inst.opcode: i for i, inst in enumerate(result)}
         assert positions["MOV"] < positions["ADD"], "MOV must precede ADD"
         assert positions["ADD"] < positions["SUB"], "ADD must precede SUB"
+
+    def test_scheduler_preserves_anti_dependency_before_later_write(self) -> None:
+        """A later write must not move before an earlier read of the old value."""
+        from aec_compiler.isa import AECInstruction
+
+        insts = [
+            AECInstruction(opcode="ADD", dest=1, src1=2, src2=3),
+            AECInstruction(opcode="LD", dest=2, src1=10, memory_space="gmem"),
+            AECInstruction(opcode="MUL", dest=4, src1=1, src2=5),
+        ]
+
+        result = _schedule_block(insts)
+        add_pos = next(i for i, inst in enumerate(result) if inst.opcode == "ADD")
+        load_pos = next(i for i, inst in enumerate(result) if inst.opcode == "LD")
+
+        assert add_pos < load_pos, "LD must not overwrite R2 before ADD reads old R2"
+
+    def test_scheduler_preserves_output_dependency_between_writes(self) -> None:
+        """Two writes to the same physical register must stay ordered."""
+        from aec_compiler.isa import AECInstruction
+
+        insts = [
+            AECInstruction(opcode="LOADI", dest=2, imm=1),
+            AECInstruction(opcode="LD", dest=2, src1=10, memory_space="gmem"),
+            AECInstruction(opcode="ADD", dest=3, src1=2, src2=4),
+        ]
+
+        result = _schedule_block(insts)
+        writes_to_r2 = [inst.opcode for inst in result if inst.dest == 2]
+
+        assert writes_to_r2 == ["LOADI", "LD"]

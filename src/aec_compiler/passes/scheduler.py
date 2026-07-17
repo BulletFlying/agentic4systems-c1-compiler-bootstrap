@@ -49,9 +49,10 @@ def _schedule_block(insts: list[AECInstruction]) -> list[AECInstruction]:
 
     for idx, inst in enumerate(insts):
         unresolved = 0
+        src_regs = tuple(dict.fromkeys(_source_regs(inst)))
 
         # ---- RAW: each source depends on the closest preceding definition ----
-        for s in _source_regs(inst):
+        for s in src_regs:
             defs = all_def_pos.get(s, [])
             closest_def = -1
             for d in defs:
@@ -79,7 +80,7 @@ def _schedule_block(insts: list[AECInstruction]) -> list[AECInstruction]:
             last_write_pos[d] = idx
 
         # ---- Track reads of source registers (for WAR edges from later writes) ----
-        for s in _source_regs(inst):
+        for s in src_regs:
             pending_reads.setdefault(s, []).append(idx)
 
         # ---- STORE→LOAD barrier (conservative alias safety) ----
@@ -118,10 +119,8 @@ def _schedule_block(insts: list[AECInstruction]) -> list[AECInstruction]:
             if dep_count[dep] == 0:
                 ready.append(dep)
 
-    # Append any remaining unscheduled (shouldn't happen with valid DDG)
-    for i in range(n):
-        if i not in scheduled:
-            scheduled.append(i)
+    if len(scheduled) != n:
+        raise ValueError("scheduler dependency graph did not resolve")
 
     return [insts[i] for i in scheduled]
 
