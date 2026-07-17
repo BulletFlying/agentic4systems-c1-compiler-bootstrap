@@ -1,20 +1,20 @@
-# C1 Testcases
+# Testcases
 
-本目录给出 C1 赛题的公开测试题示例。每个测试题由两个文件组成：
-
-```text
-kernel.ptx      # 输入 PTX 程序
-manifest.json   # 测试运行配置
-```
-
-Manifest 用于描述 kernel 名称、grid/block 维度、参数、输入输出 buffer 和正确性检查规则。PTX 文件本身只包含 kernel 代码，不包含这些运行信息。
-
-目录结构：
+Public test kernels for the AEC Compiler Toolchain. Each test case consists of two files:
 
 ```text
-T1_basic_lowering/
-T2_scalar_optimization/
-T3_memory_reuse/
-T4_register_scheduling/
-T5_scalar_gemm/
+kernel.ptx      # Input PTX program
+manifest.json   # Test run configuration
 ```
+
+The manifest describes kernel name, grid/block dimensions, parameters, input/output buffers, and correctness check rules. The PTX file contains only kernel code.
+
+## Categories
+
+| Directory | Focus |
+|---|---|
+| `T1_basic_lowering/` | PTX parsing, parameter loading, special registers, basic arithmetic, load/store, branch, ret lowering |
+| `T2_scalar_optimization/` | Constant propagation, dead code elimination, CSE, LICM, block merging |
+| `T3_memory_reuse/` | Repeated global load, load hoisting, memory reuse, address optimization |
+| `T4_register_scheduling/` | GPR/predicate allocation, live range management, register pressure, instruction scheduling |
+| `T5_scalar_gemm/` | FP32 scalar GEMM, 2D indexing, K-loop, multiply-add scheduling |
