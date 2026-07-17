@@ -44,6 +44,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
+      - name: Ensure bundled tools are executable
+        if: runner.os == 'Linux'
+        run: chmod +x compiler/aec-cc disassembler/aec-objdump aec-cmodel/bin/aec-precise-linux-x86_64
       - name: Compile Python sources
         run: python -m compileall -q src compiler disassembler tests
       - name: Run full test suite
